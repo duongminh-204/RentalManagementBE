@@ -1,0 +1,66 @@
+﻿# Build
+bin/
+obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+
+# Visual Studio
+.vs/
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# ASP.NET Core app settings
+appsettings.Development.json
+
+# Nếu appsettings.json chứa secret thì ignore luôn
+# appsettings.json
+
+# Publish output
+publish/
+
+# NuGet
+*.nupkg
+packages/
+.nuget/
+
+# Node modules (nếu dùng frontend)
+node_modules/
+
+# EF Core migrations bundle
+*.db
+*.sqlite
+*.sqlite3
+
+# OS generated
+Thumbs.db
+.DS_Store
+
+# IIS Express
+iisexpress/
+
+# Test results
+TestResults/
+
+# Coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user
