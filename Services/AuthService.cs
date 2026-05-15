@@ -66,7 +66,7 @@ namespace Backend.Services
                 };
             }
 
-            var defaultRole = await _userRepository.GetRoleByNameAsync("Customer");
+            var defaultRole = await _userRepository.GetRoleByNameAsync("Tenant");
             if (defaultRole == null)
             {
                 return new AuthResponseDto

@@ -43,6 +43,8 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<IRoomRepository, RoomRepository>();
+builder.Services.AddScoped<IRoomService, RoomServices>();
 
 // JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -68,24 +70,24 @@ builder.Services.AddAuthorization();
 var app = builder.Build();
 
 // SEED DATA 
-/*
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<RentalManagementDb>();
-    await context.Database.MigrateAsync();
 
-    if (!context.Roles.Any())
-    {
-        context.Roles.AddRange(
-            new Role { Name = "Admin", Description = "Quản trị viên" },
-            new Role { Name = "Customer", Description = "Khách hàng" },
-            new Role { Name = "Manager", Description = "Quản lý" }
-        );
-        await context.SaveChangesAsync();
-        Console.WriteLine("✅ Seed Roles thành công!");
-    }
-}
-*/
+//using (var scope = app.Services.CreateScope())
+//{
+//    var context = scope.ServiceProvider.GetRequiredService<RentalManagementDb>();
+//    await context.Database.MigrateAsync();
+
+//    if (!context.Roles.Any())
+//    {
+//        context.Roles.AddRange(
+//            new Role { Name = "Admin", Description = "Admin hệ thống" },
+//            new Role { Name = "Tenant", Description = "Người Thuê Trọ" },
+//            new Role { Name = "Owner", Description = "Chủ Trọ" }
+//        );
+//        await context.SaveChangesAsync();
+//        Console.WriteLine("✅ Seed Roles thành công!");
+//    }
+//}
+
 
 //MIDDLEWARE 
 if (app.Environment.IsDevelopment())
