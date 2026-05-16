@@ -41,4 +41,5 @@ public class User
     public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
     public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    public ICollection<Room> Rooms => Contracts.Select(c => c.Room).ToList();
 }

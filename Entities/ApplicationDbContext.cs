@@ -115,34 +115,36 @@ public class RentalManagementDb : DbContext
         // =========================
         // Rooms
         // =========================
-        modelBuilder.Entity<Room>()
-            .Property(x => x.Status)
-            .HasDefaultValue("Available");
+        modelBuilder.Entity<Room>(entity =>
+        {
+            entity.ToTable("Rooms");
+            entity.HasKey(x => x.RoomId);
 
-        modelBuilder.Entity<Room>()
-            .Property(x => x.ElectricPrice)
-            .HasDefaultValue(0m);
+            entity.Property(x => x.RoomName)
+                  .IsRequired()
+                  .HasMaxLength(50);
 
-        modelBuilder.Entity<Room>()
-            .Property(x => x.WaterPrice)
-            .HasDefaultValue(0m);
+            entity.Property(x => x.Status)
+                  .HasDefaultValue("Available")
+                  .HasMaxLength(20);
 
-        modelBuilder.Entity<Room>()
-            .Property(x => x.InternetPrice)
-            .HasDefaultValue(0m);
+            entity.Property(x => x.Price).HasDefaultValue(0m);
+            entity.Property(x => x.ElectricPrice).HasDefaultValue(0m);
+            entity.Property(x => x.WaterPrice).HasDefaultValue(0m);
+            // InternetPrice đã bị xóa
 
-        modelBuilder.Entity<Room>()
-            .Property(x => x.CreatedAt)
-            .HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.CreatedAt)
+                  .HasDefaultValueSql("GETDATE()");
 
-        modelBuilder.Entity<Room>()
-            .HasIndex(x => x.Status);
+            entity.HasIndex(x => x.Status);
+            entity.HasIndex(x => new { x.BuildingId, x.RoomName }).IsUnique(); 
 
-        modelBuilder.Entity<Room>()
-            .HasOne(x => x.Building)
-            .WithMany(x => x.Rooms)
-            .HasForeignKey(x => x.BuildingId)
-            .OnDelete(DeleteBehavior.Cascade);
+            // Relationship với Building
+            entity.HasOne(x => x.Building)
+                  .WithMany(x => x.Rooms)
+                  .HasForeignKey(x => x.BuildingId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
 
         // =========================
         // RoomImages

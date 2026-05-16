@@ -29,6 +29,10 @@ namespace Backend.Repositories
         {
             return await _context.Rooms
                 .Include(r => r.Building)
+                .Include(r => r.RoomImages)
+                .Include(r => r.Devices)
+                .Include(r => r.Contracts)
+                    .ThenInclude(c => c.User)
                 .FirstOrDefaultAsync(r => r.RoomId == id);
         }
 

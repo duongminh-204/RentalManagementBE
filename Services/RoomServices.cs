@@ -19,10 +19,10 @@ namespace Backend.Services
             return rooms.Select(MapToDto);
         }
 
-        public async Task<RoomDto?> GetRoomByIdAsync(int id)
+        public async Task<RoomDetailDto?> GetRoomByIdAsync(int id)
         {
             var room = await _repository.GetByIdAsync(id);
-            return room != null ? MapToDto(room) : null;
+            return room != null ? MapToDetailDto(room) : null;
         }
 
         public async Task<RoomDto> CreateRoomAsync(CreateRoomDto dto)
@@ -37,7 +37,6 @@ namespace Backend.Services
                 Price = dto.RentalPrice,
                 ElectricPrice = dto.ElectricPrice,
                 WaterPrice = dto.WaterPrice,
-                InternetPrice = dto.InternetPrice,
                 Description = dto.Description,
                 Status = dto.Status,
                 BuildingId = dto.BuildingId
@@ -63,8 +62,7 @@ namespace Backend.Services
             room.RoomName = dto.RoomNumber;
             room.Price = dto.RentalPrice;
             room.ElectricPrice = dto.ElectricPrice;
-            room.WaterPrice = dto.WaterPrice;
-            room.InternetPrice = dto.InternetPrice;
+            room.WaterPrice = dto.WaterPrice;       
             room.Description = dto.Description;
             room.Status = dto.Status;
             room.BuildingId = dto.BuildingId;
@@ -102,23 +100,90 @@ namespace Backend.Services
             return await _repository.GetStatsAsync(buildingId);
         }
 
+        private static IEnumerable<User> GetRoomTenants(Room room)
+        {
+            var active = room.Contracts
+                .Where(c => string.Equals(c.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                .Select(c => c.User);
+
+            return active.Any()
+                ? active
+                : room.Contracts.Select(c => c.User);
+        }
+
         private static RoomDto MapToDto(Room room)
         {
             return new RoomDto
             {
                 RoomId = room.RoomId,
                 RoomNumber = room.RoomName,
+                RoomName = room.RoomName,
                 RentalPrice = room.Price,
+                Price = room.Price,
                 ElectricPrice = room.ElectricPrice,
                 WaterPrice = room.WaterPrice,
-                InternetPrice = room.InternetPrice,
-     
                 Description = room.Description,
                 Status = room.Status,
                 BuildingId = room.BuildingId,
+                Area = room.Area,
+                MaxPeople = room.MaxPeople,
                 CreatedAt = room.CreatedAt,
                 UpdatedAt = room.CreatedAt
             };
+        }
+
+        private static RoomDetailDto MapToDetailDto(Room room)
+        {
+            var dto = new RoomDetailDto
+            {
+                RoomId = room.RoomId,
+                RoomNumber = room.RoomName,
+                RoomName = room.RoomName,
+                RentalPrice = room.Price,
+                Price = room.Price,
+                ElectricPrice = room.ElectricPrice,
+                WaterPrice = room.WaterPrice,
+                Description = room.Description,
+                Status = room.Status,
+                BuildingId = room.BuildingId,
+                Area = room.Area,
+                MaxPeople = room.MaxPeople,
+                CreatedAt = room.CreatedAt,
+                UpdatedAt = room.CreatedAt,
+                RoomImages = room.RoomImages
+                    .Select(img => new RoomImageDto
+                    {
+                        RoomImageId = img.RoomImageId,
+                        RoomId = img.RoomId,
+                        ImageUrl = img.ImageUrl
+                    })
+                    .ToList(),
+                Devices = room.Devices
+                    .Select(d => new RoomDeviceDto
+                    {
+                        DeviceId = d.DeviceId,
+                        RoomId = d.RoomId,
+                        DeviceName = d.DeviceName,
+                        Quantity = d.Quantity,
+                        Status = d.Status,
+                        Note = d.Note
+                    })
+                    .ToList(),
+                Users = GetRoomTenants(room)
+                    .GroupBy(u => u.UserId)
+                    .Select(g => g.First())
+                    .Select(u => new RoomUserDto
+                    {
+                        UserId = u.UserId,
+                        FullName = u.FullName,
+                        Avatar = u.Avatar,
+                        PhoneNumber = u.PhoneNumber,
+                        Email = u.Email
+                    })
+                    .ToList()
+            };
+
+            return dto;
         }
     }
 }

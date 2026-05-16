@@ -25,7 +25,7 @@ namespace Backend.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<RoomDto>> GetById(int id)
+        public async Task<ActionResult<RoomDetailDto>> GetById(int id)
         {
             var room = await _roomService.GetRoomByIdAsync(id);
             return room != null ? Ok(room) : NotFound();
