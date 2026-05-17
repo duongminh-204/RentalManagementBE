@@ -31,6 +31,8 @@ namespace Backend.Repositories
                 .Include(r => r.Building)
                 .Include(r => r.RoomImages)
                 .Include(r => r.Devices)
+                .Include(r => r.RoomServices)
+                    .ThenInclude(rs => rs.Service)
                 .Include(r => r.Contracts)
                     .ThenInclude(c => c.User)
                 .FirstOrDefaultAsync(r => r.RoomId == id);

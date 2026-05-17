@@ -100,15 +100,12 @@ namespace Backend.Services
             return await _repository.GetStatsAsync(buildingId);
         }
 
-        private static IEnumerable<User> GetRoomTenants(Room room)
+        private static IEnumerable<Contract> GetRoomContracts(Room room)
         {
             var active = room.Contracts
-                .Where(c => string.Equals(c.Status, "Active", StringComparison.OrdinalIgnoreCase))
-                .Select(c => c.User);
+                .Where(c => string.Equals(c.Status, "Active", StringComparison.OrdinalIgnoreCase));
 
-            return active.Any()
-                ? active
-                : room.Contracts.Select(c => c.User);
+            return active.Any() ? active : room.Contracts;
         }
 
         private static RoomDto MapToDto(Room room)
@@ -169,16 +166,29 @@ namespace Backend.Services
                         Note = d.Note
                     })
                     .ToList(),
-                Users = GetRoomTenants(room)
-                    .GroupBy(u => u.UserId)
+                Users = GetRoomContracts(room)
+                    .GroupBy(c => c.UserId)
                     .Select(g => g.First())
-                    .Select(u => new RoomUserDto
+                    .Select(c => new RoomUserDto
                     {
-                        UserId = u.UserId,
-                        FullName = u.FullName,
-                        Avatar = u.Avatar,
-                        PhoneNumber = u.PhoneNumber,
-                        Email = u.Email
+                        ContractId = c.ContractId,
+                        UserId = c.User.UserId,
+                        FullName = c.User.FullName,
+                        Avatar = c.User.Avatar,
+                        PhoneNumber = c.User.PhoneNumber,
+                        Email = c.User.Email
+                    })
+                    .ToList(),
+                RoomServices = room.RoomServices
+                    .Select(rs => new RoomServiceItemDto
+                    {
+                        RoomServiceId = rs.RoomServiceId,
+                        RoomId = rs.RoomId,
+                        ServiceId = rs.ServiceId,
+                        ServiceName = rs.Service.ServiceName,
+                        UnitPrice = rs.Service.UnitPrice,
+                        Unit = rs.Service.Unit,
+                        Quantity = rs.Quantity
                     })
                     .ToList()
             };

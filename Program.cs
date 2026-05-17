@@ -25,7 +25,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "http://localhost:5174",   
                 "http://localhost:3000",
-                 "http://localhost:5173"
+                  "http://localhost:5173"                
+                  
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
@@ -46,6 +47,7 @@ builder.Services.AddScoped<JwtService>();
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IRoomService, RoomServices>();
+builder.Services.AddScoped<IRoomManagementService, RoomManagementService>();
 
 // JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -70,7 +72,7 @@ builder.Services.AddAuthorization();
 //  BUILD
 var app = builder.Build();
 
-// SEED DATA 
+//SEED DATA
 
 //using (var scope = app.Services.CreateScope())
 //{

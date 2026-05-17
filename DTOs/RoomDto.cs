@@ -24,6 +24,7 @@
         public List<RoomImageDto> RoomImages { get; set; } = new();
         public List<RoomDeviceDto> Devices { get; set; } = new();
         public List<RoomUserDto> Users { get; set; } = new();
+        public List<RoomServiceItemDto> RoomServices { get; set; } = new();
     }
 
     public class RoomImageDto
@@ -45,6 +46,7 @@
 
     public class RoomUserDto
     {
+        public int ContractId { get; set; }
         public int UserId { get; set; }
         public string FullName { get; set; } = string.Empty;
         public string? Avatar { get; set; }
