@@ -232,6 +232,20 @@ public class RentalManagementDb : DbContext
         // Vehicles
         // =========================
         modelBuilder.Entity<Vehicle>()
+            .Property(x => x.LicensePlateNumber)
+            .HasMaxLength(20)
+            .IsRequired();
+
+        modelBuilder.Entity<Vehicle>()
+            .HasIndex(x => x.LicensePlateNumber)
+            .IsUnique();
+
+        modelBuilder.Entity<Vehicle>()
+            .Property(x => x.Status)
+            .HasMaxLength(20)
+            .HasDefaultValue("active");
+
+        modelBuilder.Entity<Vehicle>()
             .Property(x => x.ParkingFee)
             .HasDefaultValue(0m);
 
@@ -240,16 +254,22 @@ public class RentalManagementDb : DbContext
             .HasDefaultValueSql("GETDATE()");
 
         modelBuilder.Entity<Vehicle>()
+            .Property(x => x.UpdatedAt)
+            .HasDefaultValueSql("GETDATE()");
+
+        modelBuilder.Entity<Vehicle>()
             .HasOne(x => x.User)
             .WithMany(x => x.Vehicles)
             .HasForeignKey(x => x.UserId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Vehicle>()
             .HasOne(x => x.Room)
             .WithMany(x => x.Vehicles)
             .HasForeignKey(x => x.RoomId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // =========================
         // UtilityUsages

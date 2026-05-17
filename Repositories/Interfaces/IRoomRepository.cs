@@ -13,6 +13,6 @@ namespace Backend.Interfaces
         Task UpdateAsync(Room room);
         Task DeleteAsync(int id);
         Task<bool> ExistsAsync(int id);
-        Task<RoomStatsDto> GetStatsAsync(int? buildingId = null);
+        Task<RoomStatsDto> GetStatsAsync(int? buildingId = null); 
     }
 }

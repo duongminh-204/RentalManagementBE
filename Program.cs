@@ -25,7 +25,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "http://localhost:5174",   
                 "http://localhost:3000",
-                  "http://localhost:5173"                
+                "http://localhost:5173",
+                "http://localhost:5000"
                   
             )
             .AllowAnyMethod()
@@ -49,6 +50,7 @@ builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IRoomService, RoomServices>();
 builder.Services.AddScoped<IRoomManagementService, RoomManagementService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<IVehicleService, VehicleService>();
 
 // JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -106,6 +108,7 @@ app.UseCors("AllowFrontend");
 
 var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "cccd"));
+Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "vehicles"));
 app.UseStaticFiles();
 
 // app.UseHttpsRedirection();   
