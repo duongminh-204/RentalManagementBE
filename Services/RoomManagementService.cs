@@ -215,22 +215,31 @@ public class RoomManagementService : IRoomManagementService
     public async Task RemoveTenantAsync(int roomId, int contractId)
     {
         var contract = await _context.Contracts
-            .FirstOrDefaultAsync(c => c.ContractId == contractId && c.RoomId == roomId)
-            ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng.");
+            .FirstOrDefaultAsync(c => c.ContractId == contractId && c.RoomId == roomId);
+
+        if (contract == null)
+            throw new KeyNotFoundException("Không tìm thấy hợp đồng.");
 
         contract.Status = "Terminated";
+
+        _context.Contracts.Update(contract);
+
         await _context.SaveChangesAsync();
 
         var hasActive = await _context.Contracts
             .AnyAsync(c => c.RoomId == roomId && c.Status == "Active");
+
         if (!hasActive)
         {
             var room = await _context.Rooms.FindAsync(roomId);
-            if (room != null) room.Status = "Available";
-            await _context.SaveChangesAsync();
+
+            if (room != null)
+            {
+                room.Status = "Available";
+                await _context.SaveChangesAsync();
+            }
         }
     }
-
     private async Task EnsureRoomExists(int roomId)
     {
         if (!await _context.Rooms.AnyAsync(r => r.RoomId == roomId))

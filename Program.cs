@@ -34,7 +34,7 @@ builder.Services.AddCors(options =>
             .AllowCredentials();
     });
 });
-
+  
 // Database
 builder.Services.AddDbContext<RentalManagementDb>(options =>
 {

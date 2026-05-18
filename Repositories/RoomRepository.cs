@@ -61,7 +61,7 @@ namespace Backend.Repositories
         public async Task UpdateAsync(Room room)
         {
             _context.Rooms.Update(room);
-            room.CreatedAt = DateTime.UtcNow;
+            room.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
 

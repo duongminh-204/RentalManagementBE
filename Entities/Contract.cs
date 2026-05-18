@@ -22,7 +22,8 @@ public class Contract
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-    public Room Room { get; set; }
+    
+    public Room? Room { get; set; }
 
-    public User User { get; set; }
+    public User? User { get; set; }
 }

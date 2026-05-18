@@ -1,5 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Backend.Entities;
+﻿using Backend.Entities;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Backend.Entities;
 
@@ -25,8 +26,9 @@ public class Room
     public string? Description { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime? UpdatedAt { get; set; }
 
-    
+
     public Building Building { get; set; } = null!;
 
     public ICollection<RoomImage> RoomImages { get; set; } = new List<RoomImage>();
@@ -38,6 +40,7 @@ public class Room
     public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
     public ICollection<Post> Posts { get; set; } = new List<Post>();
 
-    
-    public ICollection<User> Tenants => Contracts.Select(c => c.User).ToList();
+    [NotMapped]
+    public ICollection<User> Tenants =>
+           Contracts.Select(c => c.User).ToList();
 }

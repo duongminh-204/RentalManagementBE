@@ -131,6 +131,8 @@ public class RentalManagementDb : DbContext
             entity.Property(x => x.Price).HasDefaultValue(0m);
             entity.Property(x => x.ElectricPrice).HasDefaultValue(0m);
             entity.Property(x => x.WaterPrice).HasDefaultValue(0m);
+            entity.Property(x => x.UpdatedAt)
+      .HasDefaultValueSql("GETDATE()");
             // InternetPrice đã bị xóa
 
             entity.Property(x => x.CreatedAt)
