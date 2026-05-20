@@ -2,6 +2,10 @@ using Backend.DTOs.Contracts;
 using Backend.Entities;
 using Backend.Interfaces;
 using Backend.Repositories.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Backend.Services;
 
@@ -42,9 +46,9 @@ public class ContractService : IContractService
             RoomId = dto.RoomId,
             StartDate = dto.StartDate.Date,
             EndDate = dto.EndDate.Date,
-            Deposit = 0,
+            Deposit = (decimal)dto.Deposit,                   
             Status = MapStatusToDb(dto.Status),
-            Note = BuildNote(dto.ContractNumber, dto.Terms, dto.Notes),
+            Note = BuildNote(dto.Terms, dto.Notes),  
             CreatedAt = DateTime.UtcNow
         };
 
@@ -73,8 +77,8 @@ public class ContractService : IContractService
         contract.StartDate = dto.StartDate.Date;
         contract.EndDate = dto.EndDate.Date;
         contract.Status = newStatus;
-        contract.Note = BuildNote(dto.ContractNumber, dto.Terms, dto.Notes);
-
+        contract.Note = BuildNote(dto.Terms, dto.Notes);  
+        contract.Deposit = (decimal)dto.Deposit;    
         await _contracts.SaveChangesAsync();
         await UpdateRoomOccupancyAsync(contract.RoomId);
 
@@ -100,6 +104,7 @@ public class ContractService : IContractService
 
         contract.EndDate = dto.NewEndDate.Date;
         contract.Status = "Active";
+
         if (!string.IsNullOrWhiteSpace(dto.Notes))
             contract.Note = AppendNote(contract.Note, dto.Notes);
 
@@ -153,12 +158,13 @@ public class ContractService : IContractService
 
         var hasActive = await _contracts.RoomHasActiveContractAsync(roomId);
         room.Status = hasActive ? "Occupied" : "Available";
-        await _contracts.SaveChangesAsync();
+        await _contracts.SaveChangesAsync();   // Lưu Room
     }
 
     private static string MapStatusToDb(string? status)
     {
         if (string.IsNullOrWhiteSpace(status)) return "Active";
+
         return status.ToLowerInvariant() switch
         {
             "pending" => "Pending",
@@ -168,24 +174,27 @@ public class ContractService : IContractService
         };
     }
 
-    private static string? BuildNote(string? contractNumber, string? terms, string? notes)
+   
+    private static string? BuildNote(string? terms, string? notes)
     {
         var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(contractNumber))
-            parts.Add($"[HD:{contractNumber.Trim()}]");
+
         if (!string.IsNullOrWhiteSpace(terms))
             parts.Add(terms.Trim());
+
         if (!string.IsNullOrWhiteSpace(notes))
             parts.Add(notes.Trim());
-        return parts.Count > 0 ? string.Join("\n", parts) : null;
+
+        return parts.Count > 0 ? string.Join("\n\n", parts) : null;
     }
 
     private static string? AppendNote(string? existing, string addition) =>
-        string.IsNullOrWhiteSpace(existing) ? addition : $"{existing}\n{addition}";
+        string.IsNullOrWhiteSpace(existing) ? addition : $"{existing}\n\n{addition}";
 
     private static ContractDto MapToDto(Contract contract)
     {
-        var (contractNumber, terms, notes) = ParseNote(contract.Note);
+        var (terms, notes) = ParseNote(contract.Note);   // Bỏ contractNumber
+
         var dbStatus = contract.Status ?? "Active";
         var status = dbStatus switch
         {
@@ -199,12 +208,11 @@ public class ContractService : IContractService
         return new ContractDto
         {
             Id = contract.ContractId,
-            ContractNumber = contractNumber ?? $"HD-{contract.ContractId:D5}",
             TenantId = contract.TenantId,
             RoomId = contract.RoomId,
             StartDate = contract.StartDate,
             EndDate = contract.EndDate,
-            RentalPrice = contract.Room?.Price ?? 0,
+            Deposit = contract.Deposit,                   
             Terms = terms,
             Notes = notes,
             Status = status,
@@ -213,26 +221,19 @@ public class ContractService : IContractService
         };
     }
 
-    private static (string? contractNumber, string? terms, string? notes) ParseNote(string? note)
+    private static (string? terms, string? notes) ParseNote(string? note)
     {
-        if (string.IsNullOrWhiteSpace(note)) return (null, null, null);
+        if (string.IsNullOrWhiteSpace(note))
+            return (null, null);
 
         var lines = note.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        string? number = null;
-        var rest = new List<string>();
 
-        foreach (var line in lines)
-        {
-            if (line.StartsWith("[HD:", StringComparison.OrdinalIgnoreCase) && line.EndsWith(']'))
-            {
-                number = line[4..^1];
-                continue;
-            }
-            rest.Add(line);
-        }
+      
+        var terms = lines.FirstOrDefault();
+        var notes = lines.Length > 1
+            ? string.Join("\n", lines.Skip(1))
+            : null;
 
-        var terms = rest.Count > 0 ? rest[0] : null;
-        var notes = rest.Count > 1 ? string.Join("\n", rest.Skip(1)) : null;
-        return (number, terms, notes);
+        return (terms, notes);
     }
 }
