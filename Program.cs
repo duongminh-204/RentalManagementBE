@@ -52,6 +52,8 @@ builder.Services.AddScoped<IRoomManagementRepository, RoomManagementRepository>(
 builder.Services.AddScoped<IRoomManagementService, RoomManagementService>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<IContractRepository, ContractRepository>();
+builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
 

@@ -17,5 +17,7 @@ public interface ITenantRepository
     Task<List<Contract>> GetContractHistoryForTenantAsync(int tenantId, CancellationToken cancellationToken = default);
     Task<Contract?> GetContractByRoomAndIdAsync(int roomId, int contractId, CancellationToken cancellationToken = default);
     Task<bool> RoomHasActiveContractAsync(int roomId, CancellationToken cancellationToken = default);
+    void Remove(Tenant tenant);
+    void RemoveContracts(IEnumerable<Contract> contracts);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

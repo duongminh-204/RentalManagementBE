@@ -125,14 +125,10 @@ public class TenantService : ITenantService
         var tenant = await _tenants.GetTrackedWithContractsByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
 
-        foreach (var c in tenant.Contracts.Where(c => c.Status == "Active"))
-        {
-            c.Status = "Terminated";
-            c.EndDate = DateTime.UtcNow.Date;
-        }
+        if (tenant.Contracts.Count > 0)
+            _tenants.RemoveContracts(tenant.Contracts);
 
-        tenant.IsActive = false;
-        tenant.UpdatedAt = DateTime.UtcNow;
+        _tenants.Remove(tenant);
         await _tenants.SaveChangesAsync();
     }
 

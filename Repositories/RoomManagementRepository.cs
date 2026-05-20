@@ -66,6 +66,11 @@ public class RoomManagementRepository : IRoomManagementRepository
     public async Task<Contract?> GetContractByRoomAndIdAsync(int roomId, int contractId, CancellationToken cancellationToken = default) =>
         await _db.Contracts.FirstOrDefaultAsync(c => c.ContractId == contractId && c.RoomId == roomId, cancellationToken);
 
+    public async Task<Contract?> FindActiveContractByTenantAndRoomAsync(int tenantId, int roomId, CancellationToken cancellationToken = default) =>
+        await _db.Contracts.FirstOrDefaultAsync(
+            c => c.TenantId == tenantId && c.RoomId == roomId && c.Status == "Active",
+            cancellationToken);
+
     public async Task<Room?> GetRoomTrackedAsync(int roomId, CancellationToken cancellationToken = default) =>
         await _db.Rooms.FirstOrDefaultAsync(r => r.RoomId == roomId, cancellationToken);
 

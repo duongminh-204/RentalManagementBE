@@ -21,6 +21,7 @@ public interface IRoomManagementRepository
     Task<Tenant?> GetTenantByIdAsync(int tenantId, CancellationToken cancellationToken = default);
     void AddContract(Contract contract);
     Task<Contract?> GetContractByRoomAndIdAsync(int roomId, int contractId, CancellationToken cancellationToken = default);
+    Task<Contract?> FindActiveContractByTenantAndRoomAsync(int tenantId, int roomId, CancellationToken cancellationToken = default);
     Task<Room?> GetRoomTrackedAsync(int roomId, CancellationToken cancellationToken = default);
     Task<bool> RoomHasActiveContractAsync(int roomId, CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

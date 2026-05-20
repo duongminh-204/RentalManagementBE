@@ -160,20 +160,10 @@ public class RoomManagementService : IRoomManagementService
         var tenant = await _repo.GetTenantByIdAsync(dto.TenantId)
             ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
 
-        var start = dto.StartDate ?? DateTime.UtcNow.Date;
-        var end = dto.EndDate ?? start.AddYears(1);
-
-        var contract = new Contract
-        {
-            RoomId = roomId,
-            TenantId = dto.TenantId,
-            StartDate = start,
-            EndDate = end,
-            Deposit = dto.Deposit,
-            Status = "Active",
-            CreatedAt = DateTime.UtcNow
-        };
-        _repo.AddContract(contract);
+        var contract = await _repo.FindActiveContractByTenantAndRoomAsync(dto.TenantId, roomId);
+        if (contract == null)
+            throw new InvalidOperationException(
+                "Vui lòng tạo hợp đồng cho khách thuê và phòng này trước khi gán vào phòng.");
 
         var room = await _repo.GetRoomTrackedAsync(roomId);
         if (room != null && !string.Equals(room.Status, "Occupied", StringComparison.OrdinalIgnoreCase))
@@ -200,6 +190,7 @@ public class RoomManagementService : IRoomManagementService
             ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng.");
 
         contract.Status = "Terminated";
+        contract.EndDate = DateTime.UtcNow.Date;
         await _repo.SaveChangesAsync();
 
         if (!await _repo.RoomHasActiveContractAsync(roomId))

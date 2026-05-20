@@ -100,13 +100,9 @@ namespace Backend.Services
             return await _repository.GetStatsAsync(buildingId);
         }
 
-        private static IEnumerable<Contract> GetRoomContracts(Room room)
-        {
-            var active = room.Contracts
-                .Where(c => string.Equals(c.Status, "Active", StringComparison.OrdinalIgnoreCase));
-
-            return active.Any() ? active : room.Contracts;
-        }
+        private static IEnumerable<Contract> GetRoomContracts(Room room) =>
+            room.Contracts.Where(c =>
+                string.Equals(c.Status, "Active", StringComparison.OrdinalIgnoreCase));
 
         private static RoomDto MapToDto(Room room)
         {

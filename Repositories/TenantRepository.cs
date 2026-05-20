@@ -75,6 +75,10 @@ public class TenantRepository : ITenantRepository
     public async Task<bool> RoomHasActiveContractAsync(int roomId, CancellationToken cancellationToken = default) =>
         await _db.Contracts.AnyAsync(c => c.RoomId == roomId && c.Status == "Active", cancellationToken);
 
+    public void Remove(Tenant tenant) => _db.Tenants.Remove(tenant);
+
+    public void RemoveContracts(IEnumerable<Contract> contracts) => _db.Contracts.RemoveRange(contracts);
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _db.SaveChangesAsync(cancellationToken);
 }
