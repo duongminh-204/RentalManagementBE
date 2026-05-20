@@ -48,8 +48,11 @@ builder.Services.AddScoped<JwtService>();
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IRoomService, RoomServices>();
+builder.Services.AddScoped<IRoomManagementRepository, RoomManagementRepository>();
 builder.Services.AddScoped<IRoomManagementService, RoomManagementService>();
+builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
 
 // JWT

@@ -1,5 +1,4 @@
-﻿using Backend.Entities;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Backend.Entities;
@@ -41,6 +40,11 @@ public class Room
     public ICollection<Post> Posts { get; set; } = new List<Post>();
 
     [NotMapped]
-    public ICollection<User> Tenants =>
-           Contracts.Select(c => c.User).ToList();
+    public ICollection<Tenant> Tenants =>
+        Contracts
+            .Where(c => c.Tenant != null)
+            .Select(c => c.Tenant!)
+            .GroupBy(t => t.TenantId)
+            .Select(g => g.First())
+            .ToList();
 }

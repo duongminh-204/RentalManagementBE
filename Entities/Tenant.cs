@@ -2,11 +2,9 @@
 
 namespace Backend.Entities;
 
-public class User
+public class Tenant
 {
-    public int UserId { get; set; }
-
-    public int RoleId { get; set; }
+    public int TenantId { get; set; }
 
     [Required]
     [MaxLength(100)]
@@ -23,27 +21,32 @@ public class User
 
     public string? CCCDImage { get; set; }
 
-    [Required]
-    public string PasswordHash { get; set; } = string.Empty;
+    public DateTime? DateOfBirth { get; set; }
 
-    public string? Avatar { get; set; }
+    [MaxLength(20)]
+    public string? Gender { get; set; }
+
+    [MaxLength(100)]
+    public string? Occupation { get; set; }
+
+    [MaxLength(200)]
+    public string? Workplace { get; set; }
 
     public string? Address { get; set; }
 
+    public DateTime? MoveInDate { get; set; }
+
+    public DateTime? MoveOutDate { get; set; }
+
     public bool IsActive { get; set; } = true;
+
+    public string? Note { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
-    // Navigation
-    public Role Role { get; set; } = null!;
+    public ICollection<Contract> Contracts { get; set; } = new List<Contract>();
 
-    // Chủ trọ sở hữu buildings
-    public ICollection<Building> Buildings { get; set; } = new List<Building>();
-
-    // Chủ trọ tạo invoices
-    public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
-
-    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
 }

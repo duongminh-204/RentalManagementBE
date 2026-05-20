@@ -1,51 +1,43 @@
-using Backend.Data;
 using Backend.DTOs.Rooms;
 using Backend.Entities;
 using Backend.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using Backend.Repositories.Interfaces;
 
 namespace Backend.Services;
 
 public class RoomManagementService : IRoomManagementService
 {
-    private readonly RentalManagementDb _context;
+    private readonly IRoomManagementRepository _repo;
 
-    public RoomManagementService(RentalManagementDb context)
+    public RoomManagementService(IRoomManagementRepository repo)
     {
-        _context = context;
+        _repo = repo;
     }
 
     public async Task<IEnumerable<ServiceCatalogDto>> GetServiceCatalogAsync()
     {
-        return await _context.Services
-            .Where(s => s.IsActive)
-            .OrderBy(s => s.ServiceName)
-            .Select(s => new ServiceCatalogDto
-            {
-                ServiceId = s.ServiceId,
-                ServiceName = s.ServiceName,
-                UnitPrice = s.UnitPrice,
-                Unit = s.Unit,
-                Description = s.Description,
-                IsActive = s.IsActive
-            })
-            .ToListAsync();
+        var services = await _repo.GetActiveServicesOrderedAsync();
+        return services.Select(s => new ServiceCatalogDto
+        {
+            ServiceId = s.ServiceId,
+            ServiceName = s.ServiceName,
+            UnitPrice = s.UnitPrice,
+            Unit = s.Unit,
+            Description = s.Description,
+            IsActive = s.IsActive
+        });
     }
 
     public async Task<IEnumerable<TenantPickerDto>> GetTenantCandidatesAsync()
     {
-        return await _context.Users
-            .Where(u => u.IsActive)
-            .OrderBy(u => u.FullName)
-            .Select(u => new TenantPickerDto
-            {
-                UserId = u.UserId,
-                FullName = u.FullName,
-                Avatar = u.Avatar,
-                PhoneNumber = u.PhoneNumber,
-                Email = u.Email
-            })
-            .ToListAsync();
+        var tenants = await _repo.GetActiveTenantsOrderedAsync();
+        return tenants.Select(t => new TenantPickerDto
+        {
+            TenantId = t.TenantId,
+            FullName = t.FullName,
+            PhoneNumber = t.PhoneNumber,
+            Email = t.Email
+        });
     }
 
     public async Task<RoomImageDto> AddRoomImageAsync(int roomId, CreateRoomImageDto dto)
@@ -59,8 +51,8 @@ public class RoomManagementService : IRoomManagementService
             RoomId = roomId,
             ImageUrl = dto.ImageUrl.Trim()
         };
-        _context.RoomImages.Add(image);
-        await _context.SaveChangesAsync();
+        _repo.AddRoomImage(image);
+        await _repo.SaveChangesAsync();
 
         return new RoomImageDto
         {
@@ -72,11 +64,10 @@ public class RoomManagementService : IRoomManagementService
 
     public async Task DeleteRoomImageAsync(int roomId, int imageId)
     {
-        var image = await _context.RoomImages
-            .FirstOrDefaultAsync(i => i.RoomImageId == imageId && i.RoomId == roomId)
+        var image = await _repo.GetRoomImageAsync(roomId, imageId)
             ?? throw new KeyNotFoundException("Không tìm thấy ảnh phòng.");
-        _context.RoomImages.Remove(image);
-        await _context.SaveChangesAsync();
+        _repo.RemoveRoomImage(image);
+        await _repo.SaveChangesAsync();
     }
 
     public async Task<RoomDeviceDto> AddDeviceAsync(int roomId, CreateDeviceDto dto)
@@ -93,47 +84,44 @@ public class RoomManagementService : IRoomManagementService
             Status = dto.Status ?? "Working",
             Note = dto.Note
         };
-        _context.Devices.Add(device);
-        await _context.SaveChangesAsync();
+        _repo.AddDevice(device);
+        await _repo.SaveChangesAsync();
 
         return MapDevice(device);
     }
 
     public async Task<RoomDeviceDto> UpdateDeviceAsync(int roomId, int deviceId, UpdateDeviceDto dto)
     {
-        var device = await _context.Devices
-            .FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.RoomId == roomId)
+        var device = await _repo.GetDeviceAsync(roomId, deviceId)
             ?? throw new KeyNotFoundException("Không tìm thấy thiết bị.");
 
         device.DeviceName = dto.DeviceName.Trim();
         device.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
         device.Status = dto.Status ?? "Working";
         device.Note = dto.Note;
-        await _context.SaveChangesAsync();
+        await _repo.SaveChangesAsync();
         return MapDevice(device);
     }
 
     public async Task DeleteDeviceAsync(int roomId, int deviceId)
     {
-        var device = await _context.Devices
-            .FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.RoomId == roomId)
+        var device = await _repo.GetDeviceAsync(roomId, deviceId)
             ?? throw new KeyNotFoundException("Không tìm thấy thiết bị.");
-        _context.Devices.Remove(device);
-        await _context.SaveChangesAsync();
+        _repo.RemoveDevice(device);
+        await _repo.SaveChangesAsync();
     }
 
     public async Task<RoomServiceItemDto> AssignServiceAsync(int roomId, AssignRoomServiceDto dto)
     {
         await EnsureRoomExists(roomId);
-        var service = await _context.Services.FindAsync(dto.ServiceId)
+        var service = await _repo.GetServiceByIdAsync(dto.ServiceId)
             ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ.");
 
-        var existing = await _context.RoomServices
-            .FirstOrDefaultAsync(rs => rs.RoomId == roomId && rs.ServiceId == dto.ServiceId);
+        var existing = await _repo.FindRoomServiceAsync(roomId, dto.ServiceId);
         if (existing != null)
         {
             existing.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
-            await _context.SaveChangesAsync();
+            await _repo.SaveChangesAsync();
             return MapRoomService(existing, service);
         }
 
@@ -143,37 +131,34 @@ public class RoomManagementService : IRoomManagementService
             ServiceId = dto.ServiceId,
             Quantity = dto.Quantity > 0 ? dto.Quantity : 1
         };
-        _context.RoomServices.Add(roomService);
-        await _context.SaveChangesAsync();
+        _repo.AddRoomService(roomService);
+        await _repo.SaveChangesAsync();
         return MapRoomService(roomService, service);
     }
 
     public async Task<RoomServiceItemDto> UpdateRoomServiceAsync(int roomId, int roomServiceId, UpdateRoomServiceDto dto)
     {
-        var roomService = await _context.RoomServices
-            .Include(rs => rs.Service)
-            .FirstOrDefaultAsync(rs => rs.RoomServiceId == roomServiceId && rs.RoomId == roomId)
+        var roomService = await _repo.GetRoomServiceWithServiceAsync(roomId, roomServiceId)
             ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ phòng.");
 
         roomService.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
-        await _context.SaveChangesAsync();
+        await _repo.SaveChangesAsync();
         return MapRoomService(roomService, roomService.Service);
     }
 
     public async Task DeleteRoomServiceAsync(int roomId, int roomServiceId)
     {
-        var roomService = await _context.RoomServices
-            .FirstOrDefaultAsync(rs => rs.RoomServiceId == roomServiceId && rs.RoomId == roomId)
+        var roomService = await _repo.GetRoomServiceWithServiceAsync(roomId, roomServiceId)
             ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ phòng.");
-        _context.RoomServices.Remove(roomService);
-        await _context.SaveChangesAsync();
+        _repo.RemoveRoomService(roomService);
+        await _repo.SaveChangesAsync();
     }
 
     public async Task<TenantAssignmentDto> AssignTenantAsync(int roomId, AssignTenantDto dto)
     {
         await EnsureRoomExists(roomId);
-        var user = await _context.Users.FindAsync(dto.UserId)
-            ?? throw new KeyNotFoundException("Không tìm thấy người dùng.");
+        var tenant = await _repo.GetTenantByIdAsync(dto.TenantId)
+            ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
 
         var start = dto.StartDate ?? DateTime.UtcNow.Date;
         var end = dto.EndDate ?? start.AddYears(1);
@@ -181,31 +166,28 @@ public class RoomManagementService : IRoomManagementService
         var contract = new Contract
         {
             RoomId = roomId,
-            UserId = dto.UserId,
+            TenantId = dto.TenantId,
             StartDate = start,
             EndDate = end,
             Deposit = dto.Deposit,
             Status = "Active",
             CreatedAt = DateTime.UtcNow
         };
-        _context.Contracts.Add(contract);
+        _repo.AddContract(contract);
 
-        var room = await _context.Rooms.FindAsync(roomId);
+        var room = await _repo.GetRoomTrackedAsync(roomId);
         if (room != null && !string.Equals(room.Status, "Occupied", StringComparison.OrdinalIgnoreCase))
-        {
             room.Status = "Occupied";
-        }
 
-        await _context.SaveChangesAsync();
+        await _repo.SaveChangesAsync();
 
         return new TenantAssignmentDto
         {
             ContractId = contract.ContractId,
-            UserId = user.UserId,
-            FullName = user.FullName,
-            Avatar = user.Avatar,
-            PhoneNumber = user.PhoneNumber,
-            Email = user.Email,
+            TenantId = tenant.TenantId,
+            FullName = tenant.FullName,
+            PhoneNumber = tenant.PhoneNumber,
+            Email = tenant.Email,
             StartDate = contract.StartDate,
             EndDate = contract.EndDate,
             Status = contract.Status
@@ -214,35 +196,26 @@ public class RoomManagementService : IRoomManagementService
 
     public async Task RemoveTenantAsync(int roomId, int contractId)
     {
-        var contract = await _context.Contracts
-            .FirstOrDefaultAsync(c => c.ContractId == contractId && c.RoomId == roomId);
-
-        if (contract == null)
-            throw new KeyNotFoundException("Không tìm thấy hợp đồng.");
+        var contract = await _repo.GetContractByRoomAndIdAsync(roomId, contractId)
+            ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng.");
 
         contract.Status = "Terminated";
+        await _repo.SaveChangesAsync();
 
-        _context.Contracts.Update(contract);
-
-        await _context.SaveChangesAsync();
-
-        var hasActive = await _context.Contracts
-            .AnyAsync(c => c.RoomId == roomId && c.Status == "Active");
-
-        if (!hasActive)
+        if (!await _repo.RoomHasActiveContractAsync(roomId))
         {
-            var room = await _context.Rooms.FindAsync(roomId);
-
+            var room = await _repo.GetRoomTrackedAsync(roomId);
             if (room != null)
             {
                 room.Status = "Available";
-                await _context.SaveChangesAsync();
+                await _repo.SaveChangesAsync();
             }
         }
     }
+
     private async Task EnsureRoomExists(int roomId)
     {
-        if (!await _context.Rooms.AnyAsync(r => r.RoomId == roomId))
+        if (!await _repo.RoomExistsAsync(roomId))
             throw new KeyNotFoundException("Không tìm thấy phòng.");
     }
 

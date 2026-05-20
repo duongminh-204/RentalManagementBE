@@ -6,7 +6,7 @@ public class Contract
 
     public int RoomId { get; set; }
 
-    public int UserId { get; set; }
+    public int TenantId { get; set; }
 
     public DateTime StartDate { get; set; }
 
@@ -22,8 +22,8 @@ public class Contract
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-    
+
     public Room? Room { get; set; }
 
-    public User? User { get; set; }
+    public Tenant? Tenant { get; set; }
 }

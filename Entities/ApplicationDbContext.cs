@@ -11,6 +11,7 @@ public class RentalManagementDb : DbContext
 
     public DbSet<Role> Roles { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<Tenant> Tenants { get; set; }
     public DbSet<Building> Buildings { get; set; }
     public DbSet<Room> Rooms { get; set; }
     public DbSet<RoomImage> RoomImages { get; set; }
@@ -158,6 +159,33 @@ public class RentalManagementDb : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         // =========================
+        // Tenants
+        // =========================
+        modelBuilder.Entity<Tenant>(entity =>
+        {
+            entity.ToTable("Tenants");
+            entity.HasKey(x => x.TenantId);
+
+            entity.Property(x => x.FullName)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
+            entity.Property(x => x.PhoneNumber).HasMaxLength(20);
+            entity.Property(x => x.Email).HasMaxLength(100);
+            entity.Property(x => x.CCCD).HasMaxLength(20);
+            entity.Property(x => x.Gender).HasMaxLength(20);
+            entity.Property(x => x.Occupation).HasMaxLength(100);
+            entity.Property(x => x.Workplace).HasMaxLength(200);
+
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
+
+            entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasIndex(x => x.PhoneNumber).IsUnique();
+        });
+
+        // =========================
         // Contracts
         // =========================
         modelBuilder.Entity<Contract>()
@@ -182,9 +210,9 @@ public class RentalManagementDb : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Contract>()
-            .HasOne(x => x.User)
+            .HasOne(x => x.Tenant)
             .WithMany(x => x.Contracts)
-            .HasForeignKey(x => x.UserId)
+            .HasForeignKey(x => x.TenantId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // =========================
@@ -260,9 +288,9 @@ public class RentalManagementDb : DbContext
             .HasDefaultValueSql("GETDATE()");
 
         modelBuilder.Entity<Vehicle>()
-            .HasOne(x => x.User)
+            .HasOne(x => x.Tenant)
             .WithMany(x => x.Vehicles)
-            .HasForeignKey(x => x.UserId)
+            .HasForeignKey(x => x.TenantId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.SetNull);
 

@@ -4,7 +4,8 @@ public class Vehicle
 {
     public int VehicleId { get; set; }
 
-    public int? UserId { get; set; }
+
+    public int? TenantId { get; set; }
 
     public int? RoomId { get; set; }
 
@@ -20,7 +21,9 @@ public class Vehicle
 
     public decimal ParkingFee { get; set; }
 
-    /// <summary>active | inactive | unknown</summary>
+    /// <summary>
+    /// active | inactive | unknown
+    /// </summary>
     public string Status { get; set; } = "active";
 
     public string? Notes { get; set; }
@@ -31,7 +34,8 @@ public class Vehicle
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    public User? User { get; set; }
+  
+    public Tenant? Tenant { get; set; }
 
     public Room? Room { get; set; }
 }

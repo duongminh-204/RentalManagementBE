@@ -34,7 +34,7 @@ namespace Backend.Repositories
                 .Include(r => r.RoomServices)
                     .ThenInclude(rs => rs.Service)
                 .Include(r => r.Contracts)
-                    .ThenInclude(c => c.User)
+                    .ThenInclude(c => c.Tenant)
                 .FirstOrDefaultAsync(r => r.RoomId == id);
         }
 

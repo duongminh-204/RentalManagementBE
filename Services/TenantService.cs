@@ -1,68 +1,50 @@
-using Backend.Data;
 using Backend.DTOs.Tenants;
 using Backend.Entities;
 using Backend.Interfaces;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+using Backend.Repositories.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace Backend.Services;
 
 public class TenantService : ITenantService
 {
-    private readonly RentalManagementDb _context;
-    private readonly IPasswordHasher<User> _passwordHasher;
+    private readonly ITenantRepository _tenants;
     private readonly IWebHostEnvironment _env;
 
-    public TenantService(
-        RentalManagementDb context,
-        IPasswordHasher<User> passwordHasher,
-        IWebHostEnvironment env)
+    public TenantService(ITenantRepository tenants, IWebHostEnvironment env)
     {
-        _context = context;
-        _passwordHasher = passwordHasher;
+        _tenants = tenants;
         _env = env;
     }
 
     public async Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null)
     {
-        var tenantRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Tenant");
-        if (tenantRole == null)
-            return Array.Empty<TenantListDto>();
-
-        var query = _context.Users
-            .AsNoTracking()
-            .Where(u => u.RoleId == tenantRole.RoleId)
-            .Include(u => u.Contracts)
-            .ThenInclude(c => c.Room)
-            .AsQueryable();
+        var list = await _tenants.ListWithContractsAndRoomsAsync();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var q = search.Trim().ToLower();
-            query = query.Where(u =>
-                u.FullName.ToLower().Contains(q) ||
-                (u.PhoneNumber != null && u.PhoneNumber.Contains(q)) ||
-                (u.CCCD != null && u.CCCD.Contains(q)) ||
-                (u.Email != null && u.Email.ToLower().Contains(q)));
+            var q = search.Trim().ToLowerInvariant();
+            list = list.Where(t =>
+                t.FullName.ToLowerInvariant().Contains(q) ||
+                (t.PhoneNumber != null && t.PhoneNumber.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (t.CCCD != null && t.CCCD.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (t.Email != null && t.Email.ToLowerInvariant().Contains(q))).ToList();
         }
 
-        var users = await query.OrderByDescending(u => u.UpdatedAt).ToListAsync();
-        var list = users.Select(MapToListDto).ToList();
+        var dtos = list.Select(MapToListDto).ToList();
 
-        if (!string.IsNullOrWhiteSpace(status) && status != "all")
-        {
-            list = list.Where(t => t.Status == status).ToList();
-        }
+        if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+            dtos = dtos.Where(t => string.Equals(t.Status, status, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        return list;
+        return dtos;
     }
 
     public async Task<TenantDetailDto?> GetByIdAsync(int id)
     {
-        var user = await GetTenantUserQuery().FirstOrDefaultAsync(u => u.UserId == id);
-        if (user == null) return null;
+        var tenant = await _tenants.GetWithContractsAndRoomsByIdAsync(id);
+        if (tenant == null) return null;
 
-        var dto = MapToDetailDto(user);
+        var dto = MapToDetailDto(tenant);
         dto.History = await GetHistoryInternalAsync(id);
         return dto;
     }
@@ -72,50 +54,36 @@ public class TenantService : ITenantService
         if (string.IsNullOrWhiteSpace(dto.FullName))
             throw new InvalidOperationException("Họ tên không được để trống.");
 
-        var tenantRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Tenant")
-            ?? throw new InvalidOperationException("Không tìm thấy vai trò Tenant.");
-
         var email = ResolveEmail(dto.Email, dto.PhoneNumber);
         var phone = dto.PhoneNumber?.Trim();
 
-        if (await _context.Users.AnyAsync(u =>
-                (email != null && u.Email == email) ||
-                (phone != null && u.PhoneNumber == phone)))
-        {
+        if (await _tenants.IsEmailOrPhoneTakenAsync(email, phone, excludeTenantId: null))
             throw new InvalidOperationException("Email hoặc số điện thoại đã được sử dụng.");
-        }
 
-        var password = string.IsNullOrWhiteSpace(dto.Password) ? "Tenant@123" : dto.Password!;
-        var user = new User
+        var tenant = new Tenant
         {
             FullName = dto.FullName.Trim(),
             Email = email,
             PhoneNumber = phone,
             CCCD = dto.Cccd?.Trim(),
             Address = dto.Address?.Trim(),
-            RoleId = tenantRole.RoleId,
             IsActive = true,
-            PasswordHash = _passwordHasher.HashPassword(new User(), password),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
 
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
+        _tenants.Add(tenant);
+        await _tenants.SaveChangesAsync();
 
         if (dto.RoomId.HasValue)
-        {
-            await CreateOrUpdateActiveContractAsync(user.UserId, dto.RoomId.Value, dto);
-        }
+            await CreateOrUpdateActiveContractAsync(tenant.TenantId, dto.RoomId.Value, dto);
 
-        return (await GetByIdAsync(user.UserId))!;
+        return (await GetByIdAsync(tenant.TenantId))!;
     }
 
     public async Task<TenantDetailDto> UpdateAsync(int id, UpdateTenantDto dto)
     {
-        var user = await _context.Users
-            .Include(u => u.Contracts)
-            .FirstOrDefaultAsync(u => u.UserId == id)
+        var tenant = await _tenants.GetTrackedWithContractsByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
 
         if (string.IsNullOrWhiteSpace(dto.FullName))
@@ -124,28 +92,22 @@ public class TenantService : ITenantService
         var email = ResolveEmail(dto.Email, dto.PhoneNumber);
         var phone = dto.PhoneNumber?.Trim();
 
-        if (await _context.Users.AnyAsync(u =>
-                u.UserId != id &&
-                ((email != null && u.Email == email) || (phone != null && u.PhoneNumber == phone))))
-        {
+        if (await _tenants.IsEmailOrPhoneTakenAsync(email, phone, excludeTenantId: id))
             throw new InvalidOperationException("Email hoặc số điện thoại đã được sử dụng.");
-        }
 
-        user.FullName = dto.FullName.Trim();
-        user.Email = email;
-        user.PhoneNumber = phone;
-        user.CCCD = dto.Cccd?.Trim();
-        user.Address = dto.Address?.Trim();
-        user.IsActive = dto.IsActive;
-        user.UpdatedAt = DateTime.UtcNow;
+        tenant.FullName = dto.FullName.Trim();
+        tenant.Email = email;
+        tenant.PhoneNumber = phone;
+        tenant.CCCD = dto.Cccd?.Trim();
+        tenant.Address = dto.Address?.Trim();
+        tenant.IsActive = dto.IsActive;
+        tenant.UpdatedAt = DateTime.UtcNow;
 
         if (dto.RoomId.HasValue)
-        {
             await CreateOrUpdateActiveContractAsync(id, dto.RoomId.Value, dto);
-        }
-        else if (dto.Status == "moved_out")
+        else if (string.Equals(dto.Status, "moved_out", StringComparison.OrdinalIgnoreCase))
         {
-            var active = user.Contracts.FirstOrDefault(c => c.Status == "Active");
+            var active = tenant.Contracts.FirstOrDefault(c => c.Status == "Active");
             if (active != null)
             {
                 active.Status = "Terminated";
@@ -154,31 +116,29 @@ public class TenantService : ITenantService
             }
         }
 
-        await _context.SaveChangesAsync();
+        await _tenants.SaveChangesAsync();
         return (await GetByIdAsync(id))!;
     }
 
     public async Task DeleteAsync(int id)
     {
-        var user = await _context.Users
-            .Include(u => u.Contracts)
-            .FirstOrDefaultAsync(u => u.UserId == id)
+        var tenant = await _tenants.GetTrackedWithContractsByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
 
-        foreach (var c in user.Contracts.Where(c => c.Status == "Active"))
+        foreach (var c in tenant.Contracts.Where(c => c.Status == "Active"))
         {
             c.Status = "Terminated";
             c.EndDate = DateTime.UtcNow.Date;
         }
 
-        user.IsActive = false;
-        user.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        tenant.IsActive = false;
+        tenant.UpdatedAt = DateTime.UtcNow;
+        await _tenants.SaveChangesAsync();
     }
 
     public async Task<string> UploadIdCardAsync(int id, IFormFile file)
     {
-        var user = await _context.Users.FindAsync(id)
+        var tenant = await _tenants.GetTrackedByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
 
         if (file == null || file.Length == 0)
@@ -202,26 +162,26 @@ public class TenantService : ITenantService
             await file.CopyToAsync(stream);
         }
 
-        user.CCCDImage = $"/uploads/cccd/{fileName}";
-        user.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        tenant.CCCDImage = $"/uploads/cccd/{fileName}";
+        tenant.UpdatedAt = DateTime.UtcNow;
+        await _tenants.SaveChangesAsync();
 
-        return user.CCCDImage;
+        return tenant.CCCDImage!;
     }
 
     public async Task<IEnumerable<TenantHistoryDto>> GetHistoryAsync(int id)
     {
-        await EnsureTenantExists(id);
+        if (await _tenants.GetWithContractsAndRoomsByIdAsync(id) == null)
+            throw new KeyNotFoundException("Không tìm thấy khách thuê.");
         return await GetHistoryInternalAsync(id);
     }
 
-    private async Task CreateOrUpdateActiveContractAsync(int userId, int roomId, CreateTenantDto dto)
+    private async Task CreateOrUpdateActiveContractAsync(int tenantId, int roomId, CreateTenantDto dto)
     {
-        var room = await _context.Rooms.FindAsync(roomId)
+        var room = await _tenants.GetRoomAsync(roomId)
             ?? throw new KeyNotFoundException("Không tìm thấy phòng.");
 
-        var existing = await _context.Contracts
-            .FirstOrDefaultAsync(c => c.UserId == userId && c.RoomId == roomId && c.Status == "Active");
+        var existing = await _tenants.FindActiveContractByTenantAndRoomAsync(tenantId, roomId);
 
         var start = dto.MoveInDate?.Date ?? DateTime.UtcNow.Date;
         var end = dto.MoveOutDate?.Date ?? start.AddYears(1);
@@ -235,18 +195,16 @@ public class TenantService : ITenantService
         }
         else
         {
-            var otherActive = await _context.Contracts
-                .Where(c => c.UserId == userId && c.Status == "Active")
-                .ToListAsync();
+            var otherActive = await _tenants.GetActiveContractsForTenantAsync(tenantId);
             foreach (var c in otherActive)
             {
                 c.Status = "Terminated";
                 c.EndDate = DateTime.UtcNow.Date;
             }
 
-            _context.Contracts.Add(new Contract
+            _tenants.AddContract(new Contract
             {
-                UserId = userId,
+                TenantId = tenantId,
                 RoomId = roomId,
                 StartDate = start,
                 EndDate = end,
@@ -259,38 +217,26 @@ public class TenantService : ITenantService
 
         if (!string.Equals(room.Status, "Occupied", StringComparison.OrdinalIgnoreCase))
             room.Status = "Occupied";
+
+        await _tenants.SaveChangesAsync();
     }
 
-    private IQueryable<User> GetTenantUserQuery() =>
-        _context.Users
-            .Include(u => u.Contracts)
-            .ThenInclude(c => c.Room);
-
-    private async Task EnsureTenantExists(int id)
+    private async Task<List<TenantHistoryDto>> GetHistoryInternalAsync(int tenantId)
     {
-        if (!await _context.Users.AnyAsync(u => u.UserId == id))
-            throw new KeyNotFoundException("Không tìm thấy khách thuê.");
+        var contracts = await _tenants.GetContractHistoryForTenantAsync(tenantId);
+        return contracts.Select(c => new TenantHistoryDto
+        {
+            ContractId = c.ContractId,
+            RoomId = c.RoomId,
+            RoomNumber = c.Room?.RoomName ?? string.Empty,
+            StartDate = c.StartDate,
+            EndDate = c.EndDate,
+            Deposit = c.Deposit,
+            Status = c.Status,
+            Notes = c.Note,
+            CreatedAt = c.CreatedAt
+        }).ToList();
     }
-
-    private async Task<List<TenantHistoryDto>> GetHistoryInternalAsync(int userId) =>
-        await _context.Contracts
-            .AsNoTracking()
-            .Where(c => c.UserId == userId)
-            .Include(c => c.Room)
-            .OrderByDescending(c => c.StartDate)
-            .Select(c => new TenantHistoryDto
-            {
-                ContractId = c.ContractId,
-                RoomId = c.RoomId,
-                RoomNumber = c.Room.RoomName,
-                StartDate = c.StartDate,
-                EndDate = c.EndDate,
-                Deposit = c.Deposit,
-                Status = c.Status,
-                Notes = c.Note,
-                CreatedAt = c.CreatedAt
-            })
-            .ToListAsync();
 
     private static string? ResolveEmail(string? email, string? phone)
     {
@@ -303,26 +249,26 @@ public class TenantService : ITenantService
         return null;
     }
 
-    private static TenantListDto MapToListDto(User user)
+    private static TenantListDto MapToListDto(Tenant tenant)
     {
-        var active = user.Contracts
+        var active = tenant.Contracts
             .Where(c => c.Status == "Active")
             .OrderByDescending(c => c.StartDate)
             .FirstOrDefault();
-        var latest = user.Contracts.OrderByDescending(c => c.CreatedAt).FirstOrDefault();
+        var latest = tenant.Contracts.OrderByDescending(c => c.CreatedAt).FirstOrDefault();
 
         return new TenantListDto
         {
-            Id = user.UserId,
-            FullName = user.FullName,
-            PhoneNumber = user.PhoneNumber,
-            Email = user.Email,
-            Cccd = user.CCCD,
-            IdCardImage = user.CCCDImage,
-            Avatar = user.Avatar,
-            Address = user.Address,
-            IsActive = user.IsActive,
-            Status = MapStatus(user, active, latest),
+            Id = tenant.TenantId,
+            FullName = tenant.FullName,
+            PhoneNumber = tenant.PhoneNumber,
+            Email = tenant.Email,
+            Cccd = tenant.CCCD,
+            IdCardImage = tenant.CCCDImage,
+            Avatar = null,
+            Address = tenant.Address,
+            IsActive = tenant.IsActive,
+            Status = MapStatus(tenant, active, latest),
             RoomId = active?.RoomId,
             RoomNumber = active?.Room?.RoomName,
             ContractId = active?.ContractId,
@@ -330,13 +276,13 @@ public class TenantService : ITenantService
             MoveOutDate = active?.Status == "Terminated" ? active.EndDate : null,
             Deposit = active?.Deposit ?? 0,
             Notes = active?.Note,
-            CreatedAt = user.CreatedAt
+            CreatedAt = tenant.CreatedAt
         };
     }
 
-    private static TenantDetailDto MapToDetailDto(User user)
+    private static TenantDetailDto MapToDetailDto(Tenant tenant)
     {
-        var list = MapToListDto(user);
+        var list = MapToListDto(tenant);
         return new TenantDetailDto
         {
             Id = list.Id,
@@ -360,11 +306,11 @@ public class TenantService : ITenantService
         };
     }
 
-    private static string MapStatus(User user, Contract? active, Contract? latest)
+    private static string MapStatus(Tenant tenant, Contract? active, Contract? latest)
     {
         if (active != null) return "active";
         if (latest != null && latest.Status == "Terminated") return "moved_out";
-        if (!user.IsActive) return "inactive";
+        if (!tenant.IsActive) return "inactive";
         return "inactive";
     }
 }

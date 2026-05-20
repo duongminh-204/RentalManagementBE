@@ -1,14 +1,15 @@
-using Backend.Data;
 using Backend.DTOs.Vehicles;
 using Backend.Entities;
 using Backend.Interfaces;
+using Backend.Repositories.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Services;
 
 public class VehicleService : IVehicleService
 {
-    private readonly RentalManagementDb _context;
+    private readonly IVehicleRepository _vehicles;
     private readonly IWebHostEnvironment _env;
 
     private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
@@ -16,26 +17,26 @@ public class VehicleService : IVehicleService
         "active", "inactive", "unknown"
     };
 
-    public VehicleService(RentalManagementDb context, IWebHostEnvironment env)
+    public VehicleService(IVehicleRepository vehicles, IWebHostEnvironment env)
     {
-        _context = context;
+        _vehicles = vehicles;
         _env = env;
     }
 
     public async Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null)
     {
-        var query = BaseQuery();
+        var query = _vehicles.QueryWithTenantAndRoom();
 
-        if (!string.IsNullOrWhiteSpace(status) && status != "all")
+        if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
         {
             var s = status.Trim().ToLowerInvariant();
             if (s == "unknown")
-                query = query.Where(v => v.Status == "unknown" || v.UserId == null);
+                query = query.Where(v => v.Status == "unknown" || v.TenantId == null);
             else
                 query = query.Where(v => v.Status == s);
         }
 
-        if (!string.IsNullOrWhiteSpace(type) && type != "all")
+        if (!string.IsNullOrWhiteSpace(type) && !string.Equals(type, "all", StringComparison.OrdinalIgnoreCase))
         {
             var t = type.Trim().ToLowerInvariant();
             query = query.Where(v => v.VehicleType != null && v.VehicleType.ToLower() == t);
@@ -43,11 +44,11 @@ public class VehicleService : IVehicleService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var q = search.Trim().ToLower();
+            var q = search.Trim().ToLowerInvariant();
             query = query.Where(v =>
                 v.LicensePlateNumber.ToLower().Contains(q) ||
                 (v.Brand != null && v.Brand.ToLower().Contains(q)) ||
-                (v.User != null && v.User.FullName.ToLower().Contains(q)));
+                (v.Tenant != null && v.Tenant.FullName.ToLower().Contains(q)));
         }
 
         var list = await query.OrderByDescending(v => v.UpdatedAt).ToListAsync();
@@ -56,7 +57,7 @@ public class VehicleService : IVehicleService
 
     public async Task<VehicleDto?> GetByIdAsync(int id)
     {
-        var vehicle = await BaseQuery().FirstOrDefaultAsync(v => v.VehicleId == id);
+        var vehicle = await _vehicles.QueryWithTenantAndRoom().FirstOrDefaultAsync(v => v.VehicleId == id);
         return vehicle == null ? null : MapToDto(vehicle);
     }
 
@@ -65,8 +66,8 @@ public class VehicleService : IVehicleService
         if (string.IsNullOrWhiteSpace(licensePlate))
             return Array.Empty<VehicleDto>();
 
-        var q = licensePlate.Trim().ToLower();
-        var list = await BaseQuery()
+        var q = licensePlate.Trim().ToLowerInvariant();
+        var list = await _vehicles.QueryWithTenantAndRoom()
             .Where(v => v.LicensePlateNumber.ToLower().Contains(q))
             .ToListAsync();
         return list.Select(MapToDto);
@@ -74,31 +75,27 @@ public class VehicleService : IVehicleService
 
     public async Task<IEnumerable<VehicleDto>> GetByRoomIdAsync(int roomId)
     {
-        var list = await BaseQuery().Where(v => v.RoomId == roomId).ToListAsync();
+        var list = await _vehicles.QueryWithTenantAndRoom().Where(v => v.RoomId == roomId).ToListAsync();
         return list.Select(MapToDto);
     }
 
     public async Task<IEnumerable<VehicleDto>> GetByTenantIdAsync(int tenantId)
     {
-        var list = await BaseQuery().Where(v => v.UserId == tenantId).ToListAsync();
+        var list = await _vehicles.QueryWithTenantAndRoom().Where(v => v.TenantId == tenantId).ToListAsync();
         return list.Select(MapToDto);
     }
 
     public async Task<IEnumerable<VehicleDto>> GetUnknownAsync()
     {
-        var list = await BaseQuery()
-            .Where(v => v.Status == "unknown" || v.UserId == null)
+        var list = await _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.Status == "unknown" || v.TenantId == null)
             .ToListAsync();
         return list.Select(MapToDto);
     }
 
     public async Task<ParkingFeeSummaryDto> GetParkingFeeSummaryAsync()
     {
-        var active = await _context.Vehicles
-            .AsNoTracking()
-            .Where(v => v.Status == "active")
-            .ToListAsync();
-
+        var active = await _vehicles.ListActiveForParkingSummaryAsync();
         return new ParkingFeeSummaryDto
         {
             TotalMonthlyFee = active.Sum(v => v.ParkingFee),
@@ -112,7 +109,7 @@ public class VehicleService : IVehicleService
             return Array.Empty<VehicleDto>();
 
         var t = type.Trim().ToLowerInvariant();
-        var list = await BaseQuery()
+        var list = await _vehicles.QueryWithTenantAndRoom()
             .Where(v => v.VehicleType != null && v.VehicleType.ToLower() == t)
             .ToListAsync();
         return list.Select(MapToDto);
@@ -126,41 +123,41 @@ public class VehicleService : IVehicleService
         vehicle.CreatedAt = DateTime.UtcNow;
         vehicle.UpdatedAt = DateTime.UtcNow;
 
-        _context.Vehicles.Add(vehicle);
-        await _context.SaveChangesAsync();
+        _vehicles.Add(vehicle);
+        await _vehicles.SaveChangesAsync();
 
         return (await GetByIdAsync(vehicle.VehicleId))!;
     }
 
     public async Task<VehicleDto> UpdateAsync(int id, UpdateVehicleDto dto)
     {
-        var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleId == id)
+        var vehicle = await _vehicles.GetTrackedByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy xe.");
 
         await ValidateDtoAsync(dto, excludeVehicleId: id);
 
         MapFromDto(vehicle, dto);
         vehicle.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await _vehicles.SaveChangesAsync();
 
         return (await GetByIdAsync(id))!;
     }
 
     public async Task DeleteAsync(int id)
     {
-        var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleId == id)
+        var vehicle = await _vehicles.GetTrackedByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy xe.");
 
         if (!string.IsNullOrEmpty(vehicle.VehicleImage))
             TryDeletePhysicalFile(vehicle.VehicleImage);
 
-        _context.Vehicles.Remove(vehicle);
-        await _context.SaveChangesAsync();
+        _vehicles.Remove(vehicle);
+        await _vehicles.SaveChangesAsync();
     }
 
     public async Task<string> UploadImageAsync(int id, IFormFile file)
     {
-        var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleId == id)
+        var vehicle = await _vehicles.GetTrackedByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy xe.");
 
         if (file == null || file.Length == 0)
@@ -192,16 +189,10 @@ public class VehicleService : IVehicleService
 
         vehicle.VehicleImage = $"/uploads/vehicles/{fileName}";
         vehicle.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        await _vehicles.SaveChangesAsync();
 
         return vehicle.VehicleImage;
     }
-
-    private IQueryable<Vehicle> BaseQuery() =>
-        _context.Vehicles
-            .AsNoTracking()
-            .Include(v => v.User)
-            .Include(v => v.Room);
 
     private async Task ValidateDtoAsync(CreateVehicleDto dto, int? excludeVehicleId)
     {
@@ -212,10 +203,7 @@ public class VehicleService : IVehicleService
         var status = NormalizeStatus(dto.Status);
         dto.Status = status;
 
-        var duplicate = await _context.Vehicles.AnyAsync(v =>
-            v.LicensePlateNumber == plate &&
-            (!excludeVehicleId.HasValue || v.VehicleId != excludeVehicleId.Value));
-        if (duplicate)
+        if (await _vehicles.LicensePlateExistsAsync(plate, excludeVehicleId))
             throw new InvalidOperationException("Biển số xe đã tồn tại.");
 
         if (status == "active")
@@ -229,23 +217,13 @@ public class VehicleService : IVehicleService
         if (dto.TenantId.HasValue)
             await EnsureTenantExistsAsync(dto.TenantId.Value);
 
-        if (dto.RoomId.HasValue)
-        {
-            var roomExists = await _context.Rooms.AnyAsync(r => r.RoomId == dto.RoomId.Value);
-            if (!roomExists)
-                throw new InvalidOperationException("Không tìm thấy phòng.");
-        }
+        if (dto.RoomId.HasValue && !await _vehicles.RoomExistsAsync(dto.RoomId.Value))
+            throw new InvalidOperationException("Không tìm thấy phòng.");
     }
 
     private async Task EnsureTenantExistsAsync(int tenantId)
     {
-        var tenantRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Tenant");
-        if (tenantRole == null)
-            throw new InvalidOperationException("Không tìm thấy vai trò Tenant.");
-
-        var exists = await _context.Users.AnyAsync(u =>
-            u.UserId == tenantId && u.RoleId == tenantRole.RoleId);
-        if (!exists)
+        if (!await _vehicles.TenantExistsAsync(tenantId))
             throw new InvalidOperationException("Không tìm thấy khách thuê.");
     }
 
@@ -260,23 +238,8 @@ public class VehicleService : IVehicleService
         vehicle.Status = status;
         vehicle.Notes = dto.Notes?.Trim();
         vehicle.RegistrationDate = dto.RegistrationDate?.Date;
-
-        if (status == "unknown")
-        {
-            vehicle.UserId = dto.TenantId;
-            vehicle.RoomId = dto.RoomId;
-        }
-        else if (status == "inactive")
-        {
-            vehicle.UserId = dto.TenantId;
-            vehicle.RoomId = dto.RoomId;
-        }
-        else
-        {
-            vehicle.UserId = dto.TenantId;
-            vehicle.RoomId = dto.RoomId;
-        }
-
+        vehicle.TenantId = dto.TenantId;
+        vehicle.RoomId = dto.RoomId;
         return vehicle;
     }
 
@@ -301,12 +264,12 @@ public class VehicleService : IVehicleService
         ImageUrl = v.VehicleImage,
         ParkingFee = v.ParkingFee,
         Status = string.IsNullOrEmpty(v.Status)
-            ? (v.UserId == null ? "unknown" : "active")
+            ? (v.TenantId == null ? "unknown" : "active")
             : v.Status,
         Notes = v.Notes,
         RegistrationDate = v.RegistrationDate ?? v.CreatedAt,
-        TenantId = v.UserId,
-        TenantName = v.User?.FullName,
+        TenantId = v.TenantId,
+        TenantName = v.Tenant?.FullName,
         RoomId = v.RoomId,
         RoomNumber = v.Room?.RoomName,
         CreatedAt = v.CreatedAt,

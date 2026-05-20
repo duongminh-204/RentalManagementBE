@@ -166,17 +166,17 @@ namespace Backend.Services
                         Note = d.Note
                     })
                     .ToList(),
-                Users = GetRoomContracts(room)
-                    .GroupBy(c => c.UserId)
+                Tenants = GetRoomContracts(room)
+                    .Where(c => c.Tenant != null)
+                    .GroupBy(c => c.TenantId)
                     .Select(g => g.First())
-                    .Select(c => new RoomUserDto
+                    .Select(c => new RoomTenantDto
                     {
                         ContractId = c.ContractId,
-                        UserId = c.User.UserId,
-                        FullName = c.User.FullName,
-                        Avatar = c.User.Avatar,
-                        PhoneNumber = c.User.PhoneNumber,
-                        Email = c.User.Email
+                        TenantId = c.Tenant!.TenantId,
+                        FullName = c.Tenant.FullName,
+                        PhoneNumber = c.Tenant.PhoneNumber,
+                        Email = c.Tenant.Email
                     })
                     .ToList(),
                 RoomServices = room.RoomServices
