@@ -63,6 +63,8 @@ public class CreateRoomDto
     public string? Description { get; set; }
     public string Status { get; set; } = "vacant";
     public int BuildingId { get; set; }
+    public double? Area { get; set; }
+    public int? MaxPeople { get; set; }
 }
 
 public class UpdateRoomDto : CreateRoomDto;

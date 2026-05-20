@@ -66,7 +66,8 @@ namespace Backend.Services
             room.Description = dto.Description;
             room.Status = dto.Status;
             room.BuildingId = dto.BuildingId;
-
+            room.MaxPeople = dto.MaxPeople;
+            room.Area = dto.Area;   
             await _repository.UpdateAsync(room);
             return MapToDto(room);
         }
