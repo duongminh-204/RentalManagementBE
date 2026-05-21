@@ -4,6 +4,7 @@ using Backend.Interfaces;
 using Backend.Repositories;
 using Backend.Repositories.Interfaces;
 using Backend.Services;
+using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;

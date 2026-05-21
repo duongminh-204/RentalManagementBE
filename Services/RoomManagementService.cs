@@ -1,7 +1,7 @@
 using Backend.DTOs.Rooms;
 using Backend.Entities;
-using Backend.Interfaces;
 using Backend.Repositories.Interfaces;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services;
 

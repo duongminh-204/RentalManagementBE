@@ -1,5 +1,5 @@
 ﻿using Backend.DTOs.Rooms;
-using Backend.Interfaces;
+using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

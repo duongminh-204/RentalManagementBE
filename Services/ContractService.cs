@@ -1,7 +1,7 @@
 using Backend.DTOs.Contracts;
 using Backend.Entities;
-using Backend.Interfaces;
 using Backend.Repositories.Interfaces;
+using Backend.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;

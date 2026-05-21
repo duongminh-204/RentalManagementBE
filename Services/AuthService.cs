@@ -1,7 +1,7 @@
 ﻿using Backend.DTOs.Auth;
 using Backend.Entities;
-using Backend.Interfaces;
 using Backend.Repositories.Interfaces;
+using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 
 namespace Backend.Services
