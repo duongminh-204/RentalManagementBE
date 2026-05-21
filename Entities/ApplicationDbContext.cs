@@ -1,5 +1,6 @@
 ﻿using Backend.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace Backend.Data;
 
@@ -31,6 +32,8 @@ public class RentalManagementDb : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        ConfigureDecimalPrecision(modelBuilder);
 
         // =========================
         // Roles
@@ -467,5 +470,24 @@ public class RentalManagementDb : DbContext
             .WithMany(x => x.Posts)
             .HasForeignKey(x => x.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static void ConfigureDecimalPrecision(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var decimalProperties = entityType
+                .GetProperties()
+                .Where(property => property.ClrType == typeof(decimal) || property.ClrType == typeof(decimal?));
+
+            foreach (var property in decimalProperties)
+            {
+                if (property.GetColumnType() is null && property.GetPrecision() is null)
+                {
+                    property.SetPrecision(18);
+                    property.SetScale(2);
+                }
+            }
+        }
     }
 }

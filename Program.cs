@@ -1,6 +1,5 @@
 ﻿using Backend.Data;
 using Backend.Entities;
-using Backend.Interfaces;
 using Backend.Repositories;
 using Backend.Repositories.Interfaces;
 using Backend.Services;
@@ -10,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using RoomRepositoryInterface = Backend.Interfaces.IRoomRepository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,7 +47,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
-builder.Services.AddScoped<IRoomRepository, RoomRepository>();
+builder.Services.AddScoped<RoomRepositoryInterface, RoomRepository>();
 builder.Services.AddScoped<IRoomService, RoomServices>();
 builder.Services.AddScoped<IRoomManagementRepository, RoomManagementRepository>();
 builder.Services.AddScoped<IRoomManagementService, RoomManagementService>();
@@ -57,6 +57,8 @@ builder.Services.AddScoped<IContractRepository, ContractRepository>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IExcelImportService, ExcelImportService>();
 
 // JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -81,24 +83,54 @@ builder.Services.AddAuthorization();
 //  BUILD
 var app = builder.Build();
 
-//SEED DATA
+// SEED DATA
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<RentalManagementDb>();
+    var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
 
-//using (var scope = app.Services.CreateScope())
-//{
-//    var context = scope.ServiceProvider.GetRequiredService<RentalManagementDb>();
-//    await context.Database.MigrateAsync();
+    if (!await context.Roles.AnyAsync())
+    {
+        context.Roles.AddRange(
+            new Role { Name = "Admin", Description = "Admin he thong" },
+            new Role { Name = "Tenant", Description = "Nguoi thue tro" },
+            new Role { Name = "Owner", Description = "Chu tro" }
+        );
+        await context.SaveChangesAsync();
+        Console.WriteLine("Seed Roles thanh cong!");
+    }
 
-//    if (!context.Roles.Any())
-//    {
-//        context.Roles.AddRange(
-//            new Role { Name = "Admin", Description = "Admin hệ thống" },
-//            new Role { Name = "Tenant", Description = "Người Thuê Trọ" },
-//            new Role { Name = "Owner", Description = "Chủ Trọ" }
-//        );
-//        await context.SaveChangesAsync();
-//        Console.WriteLine("Seed Roles thành công!");
-//    }
-//}
+    var adminRole = await context.Roles.FirstOrDefaultAsync(role => role.Name == "Admin");
+    if (adminRole == null)
+    {
+        adminRole = new Role { Name = "Admin", Description = "Admin he thong" };
+        context.Roles.Add(adminRole);
+        await context.SaveChangesAsync();
+    }
+    var adminEmail = "admin@rental.local";
+    var adminPhone = "0900000001";
+
+    var adminUser = await context.Users.FirstOrDefaultAsync(user => user.Email == adminEmail);
+    if (adminUser == null)
+    {
+        adminUser = new User
+        {
+            RoleId = adminRole.RoleId,
+            FullName = "Quản trị hệ thống",
+            Email = adminEmail,
+            PhoneNumber = adminPhone,
+            IsActive = true,
+            Address = "Tài khoản seed sẵn cho admin",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        adminUser.PasswordHash = passwordHasher.HashPassword(adminUser, "Admin@123");
+
+        context.Users.Add(adminUser);
+        await context.SaveChangesAsync();
+        Console.WriteLine("Seed Admin account thanh cong!");
+    }
+}
 
 
 //MIDDLEWARE 
@@ -114,6 +146,7 @@ app.UseCors("AllowFrontend");
 
 var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "cccd"));
+Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "templates"));
 Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "vehicles"));
 app.UseStaticFiles();
 
