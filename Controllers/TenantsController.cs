@@ -105,6 +105,39 @@ public class TenantsController : ControllerBase
         }
     }
 
+    [HttpPost("{id}/upload-avatar")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<ActionResult<UploadAvatarResponseDto>> UploadAvatar(int id, IFormFile file)
+    {
+        try
+        {
+            var path = await _tenantService.UploadAvatarAsync(id, file);
+            return Ok(new UploadAvatarResponseDto { Avatar = path });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}/id-card")]
+    public async Task<IActionResult> DeleteIdCard(int id)
+    {
+        try
+        {
+            await _tenantService.DeleteIdCardAsync(id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
     [HttpGet("{id}/history")]
     public async Task<ActionResult<IEnumerable<TenantHistoryDto>>> GetHistory(int id)
     {

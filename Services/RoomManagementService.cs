@@ -2,16 +2,19 @@ using Backend.DTOs.Rooms;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
 using Backend.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace Backend.Services;
 
 public class RoomManagementService : IRoomManagementService
 {
     private readonly IRoomManagementRepository _repo;
+    private readonly IWebHostEnvironment _env;
 
-    public RoomManagementService(IRoomManagementRepository repo)
+    public RoomManagementService(IRoomManagementRepository repo, IWebHostEnvironment env)
     {
         _repo = repo;
+        _env = env;
     }
 
     public async Task<IEnumerable<ServiceCatalogDto>> GetServiceCatalogAsync()
@@ -230,4 +233,46 @@ public class RoomManagementService : IRoomManagementService
         Unit = s.Unit,
         Quantity = rs.Quantity
     };
+
+    public async Task<RoomImageDto> UploadRoomImageAsync(int roomId, IFormFile file)
+    {
+        await EnsureRoomExists(roomId);
+
+        if (file == null || file.Length == 0)
+            throw new InvalidOperationException("File không hợp lệ.");
+
+        if (file.Length > 5 * 1024 * 1024)
+            throw new InvalidOperationException("Ảnh tối đa 5MB.");
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
+            throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
+
+        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "rooms");
+        Directory.CreateDirectory(uploadsDir);
+
+        var fileName = $"{roomId}_{Guid.NewGuid():N}{ext}";
+        var filePath = Path.Combine(uploadsDir, fileName);
+
+        await using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var image = new RoomImage
+        {
+            RoomId = roomId,
+            ImageUrl = $"/uploads/rooms/{fileName}"
+        };
+
+        _repo.AddRoomImage(image);
+        await _repo.SaveChangesAsync();
+
+        return new RoomImageDto
+        {
+            RoomImageId = image.RoomImageId,
+            RoomId = image.RoomId,
+            ImageUrl = image.ImageUrl
+        };
+    }
 }
