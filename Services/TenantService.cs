@@ -28,7 +28,11 @@ public class TenantService : ITenantService
                 t.FullName.ToLowerInvariant().Contains(q) ||
                 (t.PhoneNumber != null && t.PhoneNumber.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
                 (t.CCCD != null && t.CCCD.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
-                (t.Email != null && t.Email.ToLowerInvariant().Contains(q))).ToList();
+                (t.Email != null && t.Email.ToLowerInvariant().Contains(q)) ||
+                (t.Gender != null && t.Gender.ToLowerInvariant().Contains(q)) ||
+                (t.Occupation != null && t.Occupation.ToLowerInvariant().Contains(q)) ||
+                (t.Workplace != null && t.Workplace.ToLowerInvariant().Contains(q))
+            ).ToList();
         }
 
         var dtos = list.Select(MapToListDto).ToList();
@@ -36,7 +40,7 @@ public class TenantService : ITenantService
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
             dtos = dtos.Where(t => string.Equals(t.Status, status, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        return dtos;
+        return dtos; 
     }
 
     public async Task<TenantDetailDto?> GetByIdAsync(int id)
