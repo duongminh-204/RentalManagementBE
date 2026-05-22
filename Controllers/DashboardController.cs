@@ -86,4 +86,18 @@ public class DashboardController : ControllerBase
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             template.FileName);
     }
+
+    [HttpGet("export-excel")]
+    public async Task<IActionResult> ExportDashboardExcel([FromQuery] int? buildingId, [FromQuery] int? month, [FromQuery] int? year)
+    {
+        var today = DateTime.Today;
+        var selectedMonth = month ?? today.Month;
+        var selectedYear = year ?? today.Year;
+
+        var exportFile = await _dashboardService.ExportDashboardExcelAsync(selectedMonth, selectedYear, buildingId);
+        return File(
+            exportFile.Content,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            exportFile.FileName);
+    }
 }
