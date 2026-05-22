@@ -95,7 +95,7 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(450)")
                         .HasDefaultValue("Active");
 
-                    b.Property<int>("TenantId")
+                    b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("ContractId");
@@ -104,7 +104,7 @@ namespace Backend.Migrations
 
                     b.HasIndex("Status");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("UserId");
 
                     b.ToTable("Contracts");
                 });
@@ -473,30 +473,26 @@ namespace Backend.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
-                    b.Property<int?>("MaxPeople")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("Price")
+                    b.Property<decimal>("InternetPrice")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
+                    b.Property<int?>("MaxPeople")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("RoomName")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("nvarchar(450)")
                         .HasDefaultValue("Available");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETDATE()");
 
                     b.Property<decimal>("WaterPrice")
                         .ValueGeneratedOnAdd()
@@ -505,12 +501,11 @@ namespace Backend.Migrations
 
                     b.HasKey("RoomId");
 
+                    b.HasIndex("BuildingId");
+
                     b.HasIndex("Status");
 
-                    b.HasIndex("BuildingId", "RoomName")
-                        .IsUnique();
-
-                    b.ToTable("Rooms", (string)null);
+                    b.ToTable("Rooms");
                 });
 
             modelBuilder.Entity("Backend.Entities.RoomImage", b =>
@@ -592,89 +587,6 @@ namespace Backend.Migrations
                     b.HasKey("ServiceId");
 
                     b.ToTable("Services");
-                });
-
-            modelBuilder.Entity("Backend.Entities.Tenant", b =>
-                {
-                    b.Property<int>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TenantId"));
-
-                    b.Property<string>("Address")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CCCD")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("CCCDImage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Gender")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<DateTime?>("MoveInDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("MoveOutDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Occupation")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<string>("Workplace")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("TenantId");
-
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasFilter("[Email] IS NOT NULL");
-
-                    b.HasIndex("PhoneNumber")
-                        .IsUnique()
-                        .HasFilter("[PhoneNumber] IS NOT NULL");
-
-                    b.ToTable("Tenants", (string)null);
                 });
 
             modelBuilder.Entity("Backend.Entities.User", b =>
@@ -830,10 +742,6 @@ namespace Backend.Migrations
 
                     b.Property<string>("LicensePlateNumber")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("ParkingFee")
@@ -841,26 +749,11 @@ namespace Backend.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
-                    b.Property<DateTime?>("RegistrationDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("RoomId")
+                    b.Property<int>("RoomId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("active");
-
-                    b.Property<int?>("TenantId")
+                    b.Property<int>("UserId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETDATE()");
 
                     b.Property<string>("VehicleImage")
                         .HasColumnType("nvarchar(max)");
@@ -870,12 +763,9 @@ namespace Backend.Migrations
 
                     b.HasKey("VehicleId");
 
-                    b.HasIndex("LicensePlateNumber")
-                        .IsUnique();
-
                     b.HasIndex("RoomId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("UserId");
 
                     b.ToTable("Vehicles");
                 });
@@ -899,15 +789,15 @@ namespace Backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Backend.Entities.Tenant", "Tenant")
+                    b.HasOne("Backend.Entities.User", "User")
                         .WithMany("Contracts")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Room");
 
-                    b.Navigation("Tenant");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Backend.Entities.Device", b =>
@@ -1063,16 +953,18 @@ namespace Backend.Migrations
                     b.HasOne("Backend.Entities.Room", "Room")
                         .WithMany("Vehicles")
                         .HasForeignKey("RoomId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
-                    b.HasOne("Backend.Entities.Tenant", "Tenant")
+                    b.HasOne("Backend.Entities.User", "User")
                         .WithMany("Vehicles")
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Room");
 
-                    b.Navigation("Tenant");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Backend.Entities.Building", b =>
@@ -1118,20 +1010,17 @@ namespace Backend.Migrations
                     b.Navigation("RoomServices");
                 });
 
-            modelBuilder.Entity("Backend.Entities.Tenant", b =>
-                {
-                    b.Navigation("Contracts");
-
-                    b.Navigation("Vehicles");
-                });
-
             modelBuilder.Entity("Backend.Entities.User", b =>
                 {
                     b.Navigation("Buildings");
 
+                    b.Navigation("Contracts");
+
                     b.Navigation("Invoices");
 
                     b.Navigation("Notifications");
+
+                    b.Navigation("Vehicles");
                 });
 #pragma warning restore 612, 618
         }

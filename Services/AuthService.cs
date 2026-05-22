@@ -50,15 +50,7 @@ namespace Backend.Services
             {
                 IsSuccess = true,
                 Message = "Đăng nhập thành công",
-                Token = token,
-                User = new AuthUserDto
-                {
-                    UserId = user.UserId,
-                    FullName = user.FullName,
-                    Email = user.Email,
-                    PhoneNumber = user.PhoneNumber,
-                    Role = user.Role?.Name ?? string.Empty,
-                }
+                Token = token
             };
         }
 

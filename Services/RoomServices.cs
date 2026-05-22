@@ -1,15 +1,15 @@
 ﻿using Backend.DTOs.Rooms;
 using Backend.Entities;
+using Backend.Interfaces;
 using Backend.Services.Interfaces;
-using RoomRepositoryInterface = Backend.Interfaces.IRoomRepository;
 
 namespace Backend.Services
 {
     public class RoomServices : IRoomService
     {
-        private readonly RoomRepositoryInterface _repository;
+        private readonly IRoomRepository _repository;
 
-        public RoomServices(RoomRepositoryInterface repository)
+        public RoomServices(IRoomRepository repository)
         {
             _repository = repository;
         }
