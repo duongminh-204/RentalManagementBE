@@ -27,9 +27,48 @@ public class DashboardDebtInfoDto
 
 public class DashboardDebtorDto
 {
+    public int? TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Room { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
+    public string? Address { get; set; }
     public decimal Amount { get; set; }
+    public List<DashboardDebtMonthDto> DebtMonths { get; set; } = new();
+}
+
+public class DashboardDebtMonthDto
+{
+    public string MonthYear { get; set; } = string.Empty;
+    public decimal OutstandingAmount { get; set; }
+    public string? Status { get; set; }
+    public DateTime? DueDate { get; set; }
+}
+
+public class DashboardRoomStatusRecordDto
+{
+    public string? Status { get; set; }
+}
+
+public class DashboardRevenueTargetRecordDto
+{
+    public decimal Price { get; set; }
+    public string? Status { get; set; }
+}
+
+public class DashboardDebtRecordDto
+{
+    public int RoomId { get; set; }
+    public string RoomName { get; set; } = string.Empty;
+    public int? TenantId { get; set; }
+    public string? TenantName { get; set; }
+    public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
+    public string? Address { get; set; }
+    public string MonthYear { get; set; } = string.Empty;
+    public string? Status { get; set; }
+    public DateTime? DueDate { get; set; }
+    public decimal OutstandingAmount { get; set; }
 }
 
 public class DashboardRevenueDto

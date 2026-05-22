@@ -1,11 +1,10 @@
 using System.Globalization;
 using System.Text;
-using Backend.Data;
 using Backend.DTOs.Dashboard;
 using Backend.Entities;
+using Backend.Repositories.Interfaces;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Services;
 
@@ -48,16 +47,16 @@ public class ExcelImportService : Interfaces.IExcelImportService
         ["PaidAmount"] = ["PaidAmount", "SoTienDaThu", "Số tiền đã thu"],
     };
 
-    private readonly RentalManagementDb _context;
+    private readonly IExcelImportRepository _excelImportRepository;
     private readonly IPasswordHasher<User> _passwordHasher;
     private readonly IWebHostEnvironment _environment;
 
     public ExcelImportService(
-        RentalManagementDb context,
+        IExcelImportRepository excelImportRepository,
         IPasswordHasher<User> passwordHasher,
         IWebHostEnvironment environment)
     {
-        _context = context;
+        _excelImportRepository = excelImportRepository;
         _passwordHasher = passwordHasher;
         _environment = environment;
     }
@@ -77,15 +76,13 @@ public class ExcelImportService : Interfaces.IExcelImportService
         using var stream = file.OpenReadStream();
         using var workbook = new XLWorkbook(stream);
 
-        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await _excelImportRepository.BeginTransactionAsync(cancellationToken);
 
         var result = new ExcelImportResultDto();
         var owner = await EnsureDefaultOwnerAsync(cancellationToken);
         var building = await EnsureDefaultBuildingAsync(owner, cancellationToken);
 
-        var roomsByName = await _context.Rooms
-            .Where(room => room.BuildingId == building.BuildingId)
-            .ToDictionaryAsync(room => NormalizeKey(room.RoomName), cancellationToken);
+        var roomsByName = await _excelImportRepository.GetRoomsByBuildingAsync(building.BuildingId, NormalizeKey, cancellationToken);
 
         result.RoomsImported = await ImportRoomsAsync(
             FindWorksheet(workbook, "Phòng", "Phong", "Rooms"),
@@ -108,7 +105,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             result,
             cancellationToken);
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         result.Message = "Đã nhập dữ liệu Excel thành công. Dashboard có thể làm mới để xem số liệu mới nhất.";
@@ -277,7 +274,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
                     BuildingId = buildingId,
                     RoomName = roomName.Trim(),
                 };
-                await _context.Rooms.AddAsync(room, cancellationToken);
+                await _excelImportRepository.AddRoomAsync(room, cancellationToken);
                 roomsByName[normalizedKey] = room;
             }
 
@@ -293,7 +290,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             imported++;
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
         return imported;
     }
 
@@ -312,9 +309,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
         var headerMap = BuildHeaderMap(worksheet);
         var imported = 0;
 
-        var tenants = await _context.Tenants
-            .Include(tenant => tenant.Contracts)
-            .ToListAsync(cancellationToken);
+        var tenants = await _excelImportRepository.GetTenantsWithContractsAsync(cancellationToken);
 
         foreach (var row in GetDataRows(worksheet))
         {
@@ -336,7 +331,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             if (tenant == null)
             {
                 tenant = new Tenant();
-                await _context.Tenants.AddAsync(tenant, cancellationToken);
+                await _excelImportRepository.AddTenantAsync(tenant, cancellationToken);
                 tenants.Add(tenant);
             }
 
@@ -353,7 +348,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             imported++;
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
 
         foreach (var row in GetDataRows(worksheet))
         {
@@ -389,10 +384,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             var contractEnd = GetNullableDate(row, headerMap, "ContractEndDate") ?? contractStart.AddMonths(12);
             var deposit = GetDecimal(row, headerMap, "Deposit");
 
-            var contract = await _context.Contracts.FirstOrDefaultAsync(item =>
-                item.RoomId == room.RoomId &&
-                item.TenantId == tenant.TenantId &&
-                item.Status.ToLower() == "active", cancellationToken);
+            var contract = await _excelImportRepository.GetActiveContractAsync(room.RoomId, tenant.TenantId, cancellationToken);
 
             if (contract == null)
             {
@@ -401,7 +393,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
                     RoomId = room.RoomId,
                     TenantId = tenant.TenantId,
                 };
-                await _context.Contracts.AddAsync(contract, cancellationToken);
+                await _excelImportRepository.AddContractAsync(contract, cancellationToken);
                 summary.ContractsImported++;
             }
 
@@ -415,7 +407,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             room.UpdatedAt = DateTime.UtcNow;
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
         return imported;
     }
 
@@ -436,10 +428,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
         var imported = 0;
 
         var roomIds = roomsByName.Values.Select(room => room.RoomId).Where(id => id > 0).ToList();
-        var invoices = await _context.Invoices
-            .Include(invoice => invoice.Payments)
-            .Where(invoice => roomIds.Contains(invoice.RoomId))
-            .ToListAsync(cancellationToken);
+        var invoices = await _excelImportRepository.GetInvoicesWithPaymentsAsync(roomIds, cancellationToken);
 
         var invoiceMap = invoices
             .GroupBy(invoice => $"{invoice.RoomId}:{invoice.MonthYear}")
@@ -471,7 +460,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
                     UserId = ownerUserId,
                     MonthYear = normalizedMonthYear,
                 };
-                await _context.Invoices.AddAsync(invoice, cancellationToken);
+                await _excelImportRepository.AddInvoiceAsync(invoice, cancellationToken);
                 invoiceMap[invoiceKey] = invoice;
             }
 
@@ -492,7 +481,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
 
             if (invoice.Payments.Any())
             {
-                _context.Payments.RemoveRange(invoice.Payments);
+                _excelImportRepository.RemovePayments(invoice.Payments);
                 invoice.Payments.Clear();
             }
 
@@ -512,13 +501,13 @@ public class ExcelImportService : Interfaces.IExcelImportService
             imported++;
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
         return imported;
     }
 
     private async Task<User> EnsureDefaultOwnerAsync(CancellationToken cancellationToken)
     {
-        var ownerRole = await _context.Roles.FirstOrDefaultAsync(role => role.Name == "Owner", cancellationToken);
+        var ownerRole = await _excelImportRepository.GetRoleByNameAsync("Owner", cancellationToken);
         if (ownerRole == null)
         {
             ownerRole = new Role
@@ -526,11 +515,11 @@ public class ExcelImportService : Interfaces.IExcelImportService
                 Name = "Owner",
                 Description = "Chu tro"
             };
-            await _context.Roles.AddAsync(ownerRole, cancellationToken);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _excelImportRepository.AddRoleAsync(ownerRole, cancellationToken);
+            await _excelImportRepository.SaveChangesAsync(cancellationToken);
         }
 
-        var owner = await _context.Users.FirstOrDefaultAsync(user => user.RoleId == ownerRole.RoleId, cancellationToken);
+        var owner = await _excelImportRepository.GetUserByRoleIdAsync(ownerRole.RoleId, cancellationToken);
         if (owner != null)
         {
             return owner;
@@ -549,14 +538,14 @@ public class ExcelImportService : Interfaces.IExcelImportService
         };
         owner.PasswordHash = _passwordHasher.HashPassword(owner, "Owner@123");
 
-        await _context.Users.AddAsync(owner, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _excelImportRepository.AddUserAsync(owner, cancellationToken);
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
         return owner;
     }
 
     private async Task<Building> EnsureDefaultBuildingAsync(User owner, CancellationToken cancellationToken)
     {
-        var building = await _context.Buildings.FirstOrDefaultAsync(item => item.UserId == owner.UserId, cancellationToken);
+        var building = await _excelImportRepository.GetBuildingByUserIdAsync(owner.UserId, cancellationToken);
         if (building != null)
         {
             return building;
@@ -571,8 +560,8 @@ public class ExcelImportService : Interfaces.IExcelImportService
             CreatedAt = DateTime.UtcNow,
         };
 
-        await _context.Buildings.AddAsync(building, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _excelImportRepository.AddBuildingAsync(building, cancellationToken);
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
         return building;
     }
 
