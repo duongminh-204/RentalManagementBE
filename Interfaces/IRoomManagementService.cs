@@ -1,6 +1,6 @@
 using Backend.DTOs.Rooms;
 
-namespace Backend.Services.Interfaces;
+namespace Backend.Interfaces;
 
 public interface IRoomManagementService
 {

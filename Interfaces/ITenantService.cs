@@ -1,6 +1,6 @@
 using Backend.DTOs.Tenants;
 
-namespace Backend.Services.Interfaces;
+namespace Backend.Interfaces;
 
 public interface ITenantService
 {

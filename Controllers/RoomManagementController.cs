@@ -1,6 +1,5 @@
 using Backend.DTOs.Rooms;
 using Backend.Services.Interfaces;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controllers;
@@ -33,25 +32,6 @@ public class RoomManagementController : ControllerBase
     {
         var image = await _management.AddRoomImageAsync(roomId, dto);
         return Ok(image);
-    }
-
-    [HttpPost("rooms/{roomId}/images/upload")]
-    [RequestSizeLimit(5 * 1024 * 1024)]
-    public async Task<ActionResult<RoomImageDto>> UploadImage(int roomId, IFormFile file)
-    {
-        try
-        {
-            var image = await _management.UploadRoomImageAsync(roomId, file);
-            return Ok(image);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
     }
 
     [HttpDelete("rooms/{roomId}/images/{imageId}")]
