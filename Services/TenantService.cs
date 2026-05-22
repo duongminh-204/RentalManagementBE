@@ -28,7 +28,11 @@ public class TenantService : ITenantService
                 t.FullName.ToLowerInvariant().Contains(q) ||
                 (t.PhoneNumber != null && t.PhoneNumber.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
                 (t.CCCD != null && t.CCCD.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
-                (t.Email != null && t.Email.ToLowerInvariant().Contains(q))).ToList();
+                (t.Email != null && t.Email.ToLowerInvariant().Contains(q)) ||
+                (t.Gender != null && t.Gender.ToLowerInvariant().Contains(q)) ||
+                (t.Occupation != null && t.Occupation.ToLowerInvariant().Contains(q)) ||
+                (t.Workplace != null && t.Workplace.ToLowerInvariant().Contains(q))
+            ).ToList();
         }
 
         var dtos = list.Select(MapToListDto).ToList();
@@ -36,7 +40,7 @@ public class TenantService : ITenantService
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
             dtos = dtos.Where(t => string.Equals(t.Status, status, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        return dtos;
+        return dtos; 
     }
 
     public async Task<TenantDetailDto?> GetByIdAsync(int id)
@@ -67,6 +71,10 @@ public class TenantService : ITenantService
             PhoneNumber = phone,
             CCCD = dto.Cccd?.Trim(),
             Address = dto.Address?.Trim(),
+            DateOfBirth = dto.DateOfBirth,
+            Gender = dto.Gender?.Trim(),
+            Occupation = dto.Occupation?.Trim(),
+            Workplace = dto.Workplace?.Trim(),
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -100,6 +108,10 @@ public class TenantService : ITenantService
         tenant.PhoneNumber = phone;
         tenant.CCCD = dto.Cccd?.Trim();
         tenant.Address = dto.Address?.Trim();
+        tenant.DateOfBirth = dto.DateOfBirth;
+        tenant.Gender = dto.Gender?.Trim();
+        tenant.Occupation = dto.Occupation?.Trim();
+        tenant.Workplace = dto.Workplace?.Trim();
         tenant.IsActive = dto.IsActive;
         tenant.UpdatedAt = DateTime.UtcNow;
 
@@ -163,6 +175,105 @@ public class TenantService : ITenantService
         await _tenants.SaveChangesAsync();
 
         return tenant.CCCDImage!;
+    }
+
+    public async Task<string> UploadAvatarAsync(int id, IFormFile file)
+    {
+        var tenant = await _tenants.GetTrackedByIdAsync(id)
+            ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
+
+        if (file == null || file.Length == 0)
+            throw new InvalidOperationException("File không hợp lệ.");
+
+        if (file.Length > 5 * 1024 * 1024)
+            throw new InvalidOperationException("Ảnh tối đa 5MB.");
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".jpg" or ".jpeg" or ".png"))
+            throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG.");
+
+        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "avatars");
+        Directory.CreateDirectory(uploadsDir);
+
+        if (!string.IsNullOrEmpty(tenant.Avatar))
+            TryDeletePhysicalFile(tenant.Avatar, "avatars");
+
+        var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
+        var filePath = Path.Combine(uploadsDir, fileName);
+
+        await using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        tenant.Avatar = $"/uploads/avatars/{fileName}";
+        tenant.UpdatedAt = DateTime.UtcNow;
+        await _tenants.SaveChangesAsync();
+
+        return tenant.Avatar;
+    }
+
+    public async Task DeleteIdCardAsync(int id)
+    {
+        var tenant = await _tenants.GetTrackedByIdAsync(id)
+            ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
+
+        if (!string.IsNullOrEmpty(tenant.CCCDImage))
+        {
+            TryDeletePhysicalFile(tenant.CCCDImage, "cccd");
+            tenant.CCCDImage = null;
+            tenant.UpdatedAt = DateTime.UtcNow;
+            await _tenants.SaveChangesAsync();
+        }
+    }
+
+    private void TryDeletePhysicalFile(string relativePath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(relativePath)) return;
+
+            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+
+           
+            var normalized = relativePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.GetFullPath(Path.Combine(webRoot, normalized));
+
+           
+            if (!fullPath.StartsWith(Path.GetFullPath(webRoot), StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
+        }
+        catch
+        {
+            // Bỏ qua lỗi khi dọn file cũ
+        }
+    }
+
+
+    private void TryDeletePhysicalFile(string relativePath, string folder)
+    {
+        try
+        {
+            var fileName = Path.GetFileName(relativePath);
+            if (string.IsNullOrEmpty(fileName)) return;
+
+            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+            var fullPath = Path.GetFullPath(Path.Combine(webRoot, "uploads", folder, fileName));
+
+            // Chống path-traversal
+            if (!fullPath.StartsWith(Path.GetFullPath(webRoot), StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
+        }
+        catch
+        {
+            // Bỏ qua lỗi khi dọn file cũ
+        }
     }
 
     public async Task<IEnumerable<TenantHistoryDto>> GetHistoryAsync(int id)
@@ -261,8 +372,12 @@ public class TenantService : ITenantService
             Email = tenant.Email,
             Cccd = tenant.CCCD,
             IdCardImage = tenant.CCCDImage,
-            Avatar = null,
+            Avatar = tenant.Avatar,
             Address = tenant.Address,
+            DateOfBirth = tenant.DateOfBirth,
+            Gender = tenant.Gender,
+            Occupation = tenant.Occupation,
+            Workplace = tenant.Workplace,
             IsActive = tenant.IsActive,
             Status = MapStatus(tenant, active, latest),
             RoomId = active?.RoomId,
@@ -289,6 +404,10 @@ public class TenantService : ITenantService
             IdCardImage = list.IdCardImage,
             Avatar = list.Avatar,
             Address = list.Address,
+            DateOfBirth = list.DateOfBirth,
+            Gender = list.Gender,
+            Occupation = list.Occupation,
+            Workplace = list.Workplace,
             IsActive = list.IsActive,
             Status = list.Status,
             RoomId = list.RoomId,

@@ -21,6 +21,8 @@ public class Tenant
 
     public string? CCCDImage { get; set; }
 
+    public string? Avatar { get; set; }
+
     public DateTime? DateOfBirth { get; set; }
 
     [MaxLength(20)]

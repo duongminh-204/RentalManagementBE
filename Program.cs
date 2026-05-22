@@ -1,4 +1,4 @@
-﻿using Backend.Data;
+using Backend.Data;
 using Backend.Entities;
 using Backend.Repositories;
 using Backend.Repositories.Interfaces;
@@ -147,6 +147,7 @@ app.UseCors("AllowFrontend");
 var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "cccd"));
 Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "templates"));
+Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "rooms"));
 Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "vehicles"));
 app.UseStaticFiles();
 
