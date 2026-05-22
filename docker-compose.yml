@@ -1,18 +1,6 @@
-﻿services:
-  backend-api:
-    image: minh0311/rental-backend:1.0
-    container_name: rental-api
+﻿version: "3.8"
 
-    ports:
-      - "8081:8080"
-
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:8080
-
-    depends_on:
-      - sqlserver
-
+services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: sqlserver
@@ -26,6 +14,30 @@
 
     volumes:
       - sqlserver_data:/var/opt/mssql
+
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Pass123 -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend-api:
+    image: minh0311/rental-backend:1.0
+    container_name: rental-api
+
+    ports:
+      - "8081:8080"
+
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+
+     
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=RentalManagement;User Id=sa;Password=YourStrong@Pass123;TrustServerCertificate=True;MultipleActiveResultSets=true;
+
+    depends_on:
+      sqlserver:
+        condition: service_healthy
 
 volumes:
   sqlserver_data:
