@@ -67,6 +67,10 @@ public class TenantService : ITenantService
             PhoneNumber = phone,
             CCCD = dto.Cccd?.Trim(),
             Address = dto.Address?.Trim(),
+            DateOfBirth = dto.DateOfBirth,
+            Gender = dto.Gender?.Trim(),
+            Occupation = dto.Occupation?.Trim(),
+            Workplace = dto.Workplace?.Trim(),
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -100,6 +104,10 @@ public class TenantService : ITenantService
         tenant.PhoneNumber = phone;
         tenant.CCCD = dto.Cccd?.Trim();
         tenant.Address = dto.Address?.Trim();
+        tenant.DateOfBirth = dto.DateOfBirth;
+        tenant.Gender = dto.Gender?.Trim();
+        tenant.Occupation = dto.Occupation?.Trim();
+        tenant.Workplace = dto.Workplace?.Trim();
         tenant.IsActive = dto.IsActive;
         tenant.UpdatedAt = DateTime.UtcNow;
 
@@ -362,6 +370,10 @@ public class TenantService : ITenantService
             IdCardImage = tenant.CCCDImage,
             Avatar = tenant.Avatar,
             Address = tenant.Address,
+            DateOfBirth = tenant.DateOfBirth,
+            Gender = tenant.Gender,
+            Occupation = tenant.Occupation,
+            Workplace = tenant.Workplace,
             IsActive = tenant.IsActive,
             Status = MapStatus(tenant, active, latest),
             RoomId = active?.RoomId,
@@ -388,6 +400,10 @@ public class TenantService : ITenantService
             IdCardImage = list.IdCardImage,
             Avatar = list.Avatar,
             Address = list.Address,
+            DateOfBirth = list.DateOfBirth,
+            Gender = list.Gender,
+            Occupation = list.Occupation,
+            Workplace = list.Workplace,
             IsActive = list.IsActive,
             Status = list.Status,
             RoomId = list.RoomId,

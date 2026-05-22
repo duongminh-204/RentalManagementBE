@@ -10,6 +10,10 @@ public class TenantListDto
     public string? IdCardImage { get; set; }
     public string? Avatar { get; set; }
     public string? Address { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string? Gender { get; set; }
+    public string? Occupation { get; set; }
+    public string? Workplace { get; set; }
     public bool IsActive { get; set; }
     public string Status { get; set; } = "inactive";
     public int? RoomId { get; set; }
@@ -47,6 +51,10 @@ public class CreateTenantDto
     public string? Email { get; set; }
     public string? Cccd { get; set; }
     public string? Address { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public string? Gender { get; set; }
+    public string? Occupation { get; set; }
+    public string? Workplace { get; set; }
     public int? RoomId { get; set; }
     public DateTime? MoveInDate { get; set; }
     public DateTime? MoveOutDate { get; set; }
