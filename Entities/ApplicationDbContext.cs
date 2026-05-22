@@ -1,4 +1,4 @@
-﻿using Backend.Entities;
+using Backend.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Data;
@@ -129,9 +129,9 @@ public class RentalManagementDb : DbContext
                   .HasDefaultValue("Available")
                   .HasMaxLength(20);
 
-            entity.Property(x => x.Price).HasDefaultValue(0m);
-            entity.Property(x => x.ElectricPrice).HasDefaultValue(0m);
-            entity.Property(x => x.WaterPrice).HasDefaultValue(0m);
+            entity.Property(x => x.Price).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(x => x.ElectricPrice).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(x => x.WaterPrice).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             entity.Property(x => x.UpdatedAt)
       .HasDefaultValueSql("GETDATE()");
             // InternetPrice đã bị xóa
@@ -222,6 +222,10 @@ public class RentalManagementDb : DbContext
             .Property(x => x.IsActive)
             .HasDefaultValue(true);
 
+        modelBuilder.Entity<Service>()
+            .Property(x => x.UnitPrice)
+            .HasColumnType("decimal(18,2)");
+
         // =========================
         // RoomServices
         // =========================
@@ -277,6 +281,7 @@ public class RentalManagementDb : DbContext
 
         modelBuilder.Entity<Vehicle>()
             .Property(x => x.ParkingFee)
+            .HasColumnType("decimal(18,2)")
             .HasDefaultValue(0m);
 
         modelBuilder.Entity<Vehicle>()
