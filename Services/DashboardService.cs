@@ -1,17 +1,16 @@
+using Backend.Data;
 using Backend.DTOs.Dashboard;
-using Backend.Repositories.Interfaces;
-using Backend.Services.Interfaces;
-using ClosedXML.Excel;
+using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Services;
 
-public class DashboardService : IDashboardService
+public class DashboardService : Interfaces.IDashboardService
 {
-    private readonly IDashboardRepository _dashboardRepository;
+    private readonly RentalManagementDb _context;
 
-    public DashboardService(IDashboardRepository dashboardRepository)
+    public DashboardService(RentalManagementDb context)
     {
-        _dashboardRepository = dashboardRepository;
+        _context = context;
     }
 
     public async Task<DashboardStatsDto> GetDashboardStatsAsync(int month, int year, int? buildingId = null)
@@ -33,7 +32,15 @@ public class DashboardService : IDashboardService
 
     public async Task<DashboardRoomStatsDto> GetRoomStatsAsync(int? buildingId = null)
     {
-        var rooms = await _dashboardRepository.GetRoomStatusesAsync(buildingId);
+        var roomQuery = _context.Rooms.AsNoTracking().AsQueryable();
+        if (buildingId.HasValue)
+        {
+            roomQuery = roomQuery.Where(room => room.BuildingId == buildingId.Value);
+        }
+
+        var rooms = await roomQuery
+            .Select(room => new { room.Status })
+            .ToListAsync();
 
         return new DashboardRoomStatsDto
         {
@@ -46,39 +53,34 @@ public class DashboardService : IDashboardService
 
     public async Task<DashboardDebtInfoDto> GetDebtInfoAsync(int? buildingId = null)
     {
-        var debtRows = await _dashboardRepository.GetDebtRecordsAsync(buildingId);
+        var invoiceQuery = BuildInvoiceQuery(buildingId);
+
+        var debtRows = await invoiceQuery
+            .Select(invoice => new
+            {
+                invoice.RoomId,
+                RoomName = invoice.Room.RoomName,
+                TenantName = invoice.Room.Contracts
+                    .Where(contract => contract.Status.ToLower() == "active" && contract.Tenant != null)
+                    .OrderByDescending(contract => contract.StartDate)
+                    .Select(contract => contract.Tenant!.FullName)
+                    .FirstOrDefault(),
+                OutstandingAmount = invoice.TotalAmount -
+                    invoice.Payments
+                        .Where(payment => payment.Status == null || payment.Status.ToLower() == "success")
+                        .Select(payment => (decimal?)payment.Amount)
+                        .Sum()!.GetValueOrDefault()
+            })
+            .ToListAsync();
 
         var groupedDebts = debtRows
             .Where(row => row.OutstandingAmount > 0)
-            .GroupBy(row => new
-            {
-                row.RoomId,
-                row.RoomName,
-                row.TenantId,
-                row.TenantName,
-                row.PhoneNumber,
-                row.Email,
-                row.Address,
-            })
+            .GroupBy(row => new { row.RoomId, row.RoomName, row.TenantName })
             .Select(group => new DashboardDebtorDto
             {
-                TenantId = group.Key.TenantId,
                 Name = string.IsNullOrWhiteSpace(group.Key.TenantName) ? $"Phòng {group.Key.RoomName}" : group.Key.TenantName!,
                 Room = group.Key.RoomName,
-                PhoneNumber = group.Key.PhoneNumber,
-                Email = group.Key.Email,
-                Address = group.Key.Address,
                 Amount = group.Sum(item => item.OutstandingAmount),
-                DebtMonths = group
-                    .OrderBy(item => item.MonthYear)
-                    .Select(item => new DashboardDebtMonthDto
-                    {
-                        MonthYear = item.MonthYear,
-                        OutstandingAmount = item.OutstandingAmount,
-                        Status = item.Status,
-                        DueDate = item.DueDate,
-                    })
-                    .ToList(),
             })
             .OrderByDescending(item => item.Amount)
             .ToList();
@@ -94,8 +96,21 @@ public class DashboardService : IDashboardService
     public async Task<DashboardRevenueDto> GetRevenueAsync(int month, int year, int? buildingId = null)
     {
         var monthYear = FormatMonthYear(month, year);
-        var monthlyRevenue = await _dashboardRepository.GetMonthlyRevenueAsync(monthYear, buildingId);
-        var roomValues = await _dashboardRepository.GetRevenueTargetsAsync(buildingId);
+        var invoiceQuery = BuildInvoiceQuery(buildingId);
+
+        var monthlyRevenue = await invoiceQuery
+            .Where(invoice => invoice.MonthYear == monthYear)
+            .SumAsync(invoice => (decimal?)invoice.TotalAmount) ?? 0m;
+
+        var roomQuery = _context.Rooms.AsNoTracking().AsQueryable();
+        if (buildingId.HasValue)
+        {
+            roomQuery = roomQuery.Where(room => room.BuildingId == buildingId.Value);
+        }
+
+        var roomValues = await roomQuery
+            .Select(room => new { room.Price, room.Status })
+            .ToListAsync();
 
         var targetRevenue = roomValues
             .Where(room => NormalizeRoomStatus(room.Status) != "maintenance")
@@ -108,109 +123,22 @@ public class DashboardService : IDashboardService
         };
     }
 
-    public async Task<(byte[] Content, string FileName)> ExportDashboardExcelAsync(int month, int year, int? buildingId = null)
+    private IQueryable<Entities.Invoice> BuildInvoiceQuery(int? buildingId)
     {
-        var roomStats = await GetRoomStatsAsync(buildingId);
-        var debtInfo = await GetDebtInfoAsync(buildingId);
-        var revenue = await GetRevenueAsync(month, year, buildingId);
+        var query = _context.Invoices
+            .AsNoTracking()
+            .Include(invoice => invoice.Payments)
+            .Include(invoice => invoice.Room)
+                .ThenInclude(room => room.Contracts)
+                    .ThenInclude(contract => contract.Tenant)
+            .AsQueryable();
 
-        using var workbook = new XLWorkbook();
-        var overviewSheet = workbook.Worksheets.Add("Tong quan");
-        var roomSheet = workbook.Worksheets.Add("Tinh trang phong");
-        var debtSheet = workbook.Worksheets.Add("Can thu");
-
-        overviewSheet.Cell(1, 1).Value = "Bao cao dashboard nha tro";
-        overviewSheet.Cell(2, 1).Value = "Ky bao cao";
-        overviewSheet.Cell(2, 2).Value = $"{year:D4}-{month:D2}";
-        overviewSheet.Cell(4, 1).Value = "Chi so";
-        overviewSheet.Cell(4, 2).Value = "Gia tri";
-
-        overviewSheet.Cell(5, 1).Value = "Tong so phong";
-        overviewSheet.Cell(5, 2).Value = roomStats.TotalRooms;
-        overviewSheet.Cell(6, 1).Value = "Phong dang thue";
-        overviewSheet.Cell(6, 2).Value = roomStats.OccupiedRooms;
-        overviewSheet.Cell(7, 1).Value = "Phong trong";
-        overviewSheet.Cell(7, 2).Value = roomStats.EmptyRooms;
-        overviewSheet.Cell(8, 1).Value = "Phong bao tri";
-        overviewSheet.Cell(8, 2).Value = roomStats.MaintenanceRooms;
-        overviewSheet.Cell(9, 1).Value = "Tong hoa don thang nay";
-        overviewSheet.Cell(9, 2).Value = revenue.MonthlyRevenue;
-        overviewSheet.Cell(10, 1).Value = "Can thu thang nay";
-        overviewSheet.Cell(10, 2).Value = debtInfo.TotalDebt;
-        overviewSheet.Cell(11, 1).Value = "Da thu";
-        overviewSheet.Cell(11, 2).Value = Math.Max(revenue.MonthlyRevenue - Math.Min(debtInfo.TotalDebt, revenue.MonthlyRevenue), 0);
-        overviewSheet.Cell(12, 1).Value = "Khach chua thanh toan";
-        overviewSheet.Cell(12, 2).Value = debtInfo.UnpaidTenantsCount;
-
-        roomSheet.Cell(1, 1).Value = "Tong so phong";
-        roomSheet.Cell(1, 2).Value = "Dang thue";
-        roomSheet.Cell(1, 3).Value = "Phong trong";
-        roomSheet.Cell(1, 4).Value = "Bao tri";
-        roomSheet.Cell(2, 1).Value = roomStats.TotalRooms;
-        roomSheet.Cell(2, 2).Value = roomStats.OccupiedRooms;
-        roomSheet.Cell(2, 3).Value = roomStats.EmptyRooms;
-        roomSheet.Cell(2, 4).Value = roomStats.MaintenanceRooms;
-
-        debtSheet.Cell(1, 1).Value = "Ten khach / phong";
-        debtSheet.Cell(1, 2).Value = "Phong";
-        debtSheet.Cell(1, 3).Value = "So tien can thu";
-
-        if (debtInfo.TopDebtors.Count == 0)
+        if (buildingId.HasValue)
         {
-            debtSheet.Cell(2, 1).Value = "Khong co du lieu can thu noi bat";
-        }
-        else
-        {
-            for (var index = 0; index < debtInfo.TopDebtors.Count; index++)
-            {
-                var debtor = debtInfo.TopDebtors[index];
-                debtSheet.Cell(index + 2, 1).Value = debtor.Name;
-                debtSheet.Cell(index + 2, 2).Value = debtor.Room;
-                debtSheet.Cell(index + 2, 3).Value = debtor.Amount;
-            }
+            query = query.Where(invoice => invoice.Room.BuildingId == buildingId.Value);
         }
 
-        overviewSheet.Cell(9, 2).Style.NumberFormat.Format = "#,##0";
-        overviewSheet.Cell(10, 2).Style.NumberFormat.Format = "#,##0";
-        overviewSheet.Cell(11, 2).Style.NumberFormat.Format = "#,##0";
-        debtSheet.Column(3).Style.NumberFormat.Format = "#,##0";
-
-        StyleWorksheet(overviewSheet);
-        StyleWorksheet(roomSheet);
-        StyleWorksheet(debtSheet);
-
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
-
-        return (
-            stream.ToArray(),
-            $"dashboard-{year:D4}-{month:D2}.xlsx");
-    }
-
-    private static void StyleWorksheet(IXLWorksheet worksheet)
-    {
-        var usedRange = worksheet.RangeUsed();
-        if (usedRange is null)
-        {
-            return;
-        }
-
-        usedRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-        usedRange.Style.Font.FontName = "Segoe UI";
-
-        var headerRow = worksheet.Row(1);
-        headerRow.Style.Font.Bold = true;
-        headerRow.Style.Fill.BackgroundColor = XLColor.FromHtml("#EEF1FF");
-
-        if (worksheet.Name == "Tong quan")
-        {
-            worksheet.Cell(1, 1).Style.Font.Bold = true;
-            worksheet.Cell(1, 1).Style.Font.FontSize = 16;
-            worksheet.Range(4, 1, 4, 2).Style.Font.Bold = true;
-            worksheet.Range(4, 1, 4, 2).Style.Fill.BackgroundColor = XLColor.FromHtml("#F3F4F8");
-        }
-
-        worksheet.Columns().AdjustToContents();
+        return query;
     }
 
     private static string FormatMonthYear(int month, int year) => $"{year:D4}-{month:D2}";

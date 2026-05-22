@@ -8,5 +8,4 @@ public interface IDashboardService
     Task<DashboardRoomStatsDto> GetRoomStatsAsync(int? buildingId = null);
     Task<DashboardDebtInfoDto> GetDebtInfoAsync(int? buildingId = null);
     Task<DashboardRevenueDto> GetRevenueAsync(int month, int year, int? buildingId = null);
-    Task<(byte[] Content, string FileName)> ExportDashboardExcelAsync(int month, int year, int? buildingId = null);
 }
