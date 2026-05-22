@@ -1,7 +1,6 @@
 ﻿# Build
 bin/
 obj/
-temp-build-output/
 
 # User-specific files
 *.user
@@ -25,10 +24,9 @@ temp-build-output/
 
 # ASP.NET Core app settings
 appsettings.Development.json
-appsettings.json
 
-# File test local
-admin-template-test.xlsx
+# Nếu appsettings.json chứa secret thì ignore luôn
+# appsettings.json
 
 # Publish output
 publish/
