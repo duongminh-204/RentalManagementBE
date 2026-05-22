@@ -4,7 +4,7 @@ echo =========================
 echo Starting Rental API...
 echo =========================
 
-docker compose up -d --build
+docker compose up -d
 
 echo.
 echo =========================
