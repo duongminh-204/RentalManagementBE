@@ -65,3 +65,8 @@ public class UploadIdCardResponseDto
 {
     public string IdCardImage { get; set; } = string.Empty;
 }
+
+public class UploadAvatarResponseDto
+{
+    public string Avatar { get; set; } = string.Empty;
+}

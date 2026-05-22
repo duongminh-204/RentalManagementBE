@@ -165,6 +165,105 @@ public class TenantService : ITenantService
         return tenant.CCCDImage!;
     }
 
+    public async Task<string> UploadAvatarAsync(int id, IFormFile file)
+    {
+        var tenant = await _tenants.GetTrackedByIdAsync(id)
+            ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
+
+        if (file == null || file.Length == 0)
+            throw new InvalidOperationException("File không hợp lệ.");
+
+        if (file.Length > 5 * 1024 * 1024)
+            throw new InvalidOperationException("Ảnh tối đa 5MB.");
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".jpg" or ".jpeg" or ".png"))
+            throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG.");
+
+        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "avatars");
+        Directory.CreateDirectory(uploadsDir);
+
+        if (!string.IsNullOrEmpty(tenant.Avatar))
+            TryDeletePhysicalFile(tenant.Avatar, "avatars");
+
+        var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
+        var filePath = Path.Combine(uploadsDir, fileName);
+
+        await using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        tenant.Avatar = $"/uploads/avatars/{fileName}";
+        tenant.UpdatedAt = DateTime.UtcNow;
+        await _tenants.SaveChangesAsync();
+
+        return tenant.Avatar;
+    }
+
+    public async Task DeleteIdCardAsync(int id)
+    {
+        var tenant = await _tenants.GetTrackedByIdAsync(id)
+            ?? throw new KeyNotFoundException("Không tìm thấy khách thuê.");
+
+        if (!string.IsNullOrEmpty(tenant.CCCDImage))
+        {
+            TryDeletePhysicalFile(tenant.CCCDImage, "cccd");
+            tenant.CCCDImage = null;
+            tenant.UpdatedAt = DateTime.UtcNow;
+            await _tenants.SaveChangesAsync();
+        }
+    }
+
+    private void TryDeletePhysicalFile(string relativePath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(relativePath)) return;
+
+            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+
+           
+            var normalized = relativePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.GetFullPath(Path.Combine(webRoot, normalized));
+
+           
+            if (!fullPath.StartsWith(Path.GetFullPath(webRoot), StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
+        }
+        catch
+        {
+            // Bỏ qua lỗi khi dọn file cũ
+        }
+    }
+
+
+    private void TryDeletePhysicalFile(string relativePath, string folder)
+    {
+        try
+        {
+            var fileName = Path.GetFileName(relativePath);
+            if (string.IsNullOrEmpty(fileName)) return;
+
+            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+            var fullPath = Path.GetFullPath(Path.Combine(webRoot, "uploads", folder, fileName));
+
+            // Chống path-traversal
+            if (!fullPath.StartsWith(Path.GetFullPath(webRoot), StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (File.Exists(fullPath))
+                File.Delete(fullPath);
+        }
+        catch
+        {
+            // Bỏ qua lỗi khi dọn file cũ
+        }
+    }
+
     public async Task<IEnumerable<TenantHistoryDto>> GetHistoryAsync(int id)
     {
         if (await _tenants.GetWithContractsAndRoomsByIdAsync(id) == null)
@@ -261,7 +360,7 @@ public class TenantService : ITenantService
             Email = tenant.Email,
             Cccd = tenant.CCCD,
             IdCardImage = tenant.CCCDImage,
-            Avatar = null,
+            Avatar = tenant.Avatar,
             Address = tenant.Address,
             IsActive = tenant.IsActive,
             Status = MapStatus(tenant, active, latest),

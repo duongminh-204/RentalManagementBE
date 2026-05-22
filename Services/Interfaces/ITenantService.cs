@@ -10,5 +10,7 @@ public interface ITenantService
     Task<TenantDetailDto> UpdateAsync(int id, UpdateTenantDto dto);
     Task DeleteAsync(int id);
     Task<string> UploadIdCardAsync(int id, IFormFile file);
+    Task<string> UploadAvatarAsync(int id, IFormFile file);
+    Task DeleteIdCardAsync(int id);
     Task<IEnumerable<TenantHistoryDto>> GetHistoryAsync(int id);
 }
