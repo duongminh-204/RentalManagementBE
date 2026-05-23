@@ -1,18 +1,13 @@
 ﻿@echo off
 setlocal
+cd /d "%~dp0"
 
 echo =========================
 echo Building & Starting Rental API...
 echo =========================
 
-REM Step 1: Stop old containers (optional but safe)
 docker compose down
-
-REM Step 2: Build everything (force rebuild)
-docker compose build --no-cache
-
-REM Step 3: Start containers
-docker compose up -d
+docker compose up -d --build
 
 echo.
 echo =========================

@@ -15,7 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ====================== CONFIGURATION ======================
 builder.Configuration
-    .SetBasePath(Directory.GetCurrentDirectory())
+    .SetBasePath(AppContext.BaseDirectory)
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
@@ -47,9 +47,17 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<RentalManagementDb>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
+    }
+
     options.UseSqlServer(connectionString, sqlOptions =>
     {
-        sqlOptions.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null);
     });
 });
 
@@ -76,15 +84,22 @@ builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        var jwtKey = builder.Configuration["Jwt:Key"];
+        var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+        var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            throw new InvalidOperationException("JWT Key is missing.");
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             ClockSkew = TimeSpan.Zero
         };
     });
@@ -94,7 +109,7 @@ builder.Services.AddAuthorization();
 // ====================== BUILD APP ======================
 var app = builder.Build();
 
-// ====================== SEED DATA ======================
+// ====================== SEED + MIGRATE ======================
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<RentalManagementDb>();
@@ -106,28 +121,27 @@ using (var scope = app.Services.CreateScope())
     {
         try
         {
-            Console.WriteLine("🔄 Checking database connection...");
+            Console.WriteLine("Checking database connection...");
             await context.Database.MigrateAsync();
-            Console.WriteLine("✅ Database connected & migrations applied.");
+            Console.WriteLine("Database connected & migrations applied.");
             connected = true;
         }
         catch (Exception ex)
         {
             retries--;
-            Console.WriteLine($"❌ Database not ready: {ex.Message}");
+            Console.WriteLine($"Database not ready: {ex.Message}");
 
             if (retries <= 0)
             {
-                Console.WriteLine("🚫 Could not connect to database after multiple retries. App will start anyway.");
+                Console.WriteLine("Could not connect to database after multiple retries. App will start anyway.");
                 break;
             }
 
-            Console.WriteLine($"⏳ Retrying in 5 seconds... ({retries} retries left)");
+            Console.WriteLine($"Retrying in 5 seconds... ({retries} retries left)");
             await Task.Delay(5000);
         }
     }
 
-    // SEED DATA
     try
     {
         if (connected && !context.Roles.Any())
@@ -139,12 +153,12 @@ using (var scope = app.Services.CreateScope())
             );
 
             await context.SaveChangesAsync();
-            Console.WriteLine("✅ Seed Roles thành công!");
+            Console.WriteLine("Seed Roles successfully.");
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ Seed data error: {ex.Message}");
+        Console.WriteLine($"Seed data error: {ex.Message}");
     }
 }
 
@@ -174,17 +188,15 @@ foreach (var folder in uploadFolders)
     try
     {
         Directory.CreateDirectory(folder);
-        Console.WriteLine($"✅ Created folder: {folder}");
+        Console.WriteLine($"Created folder: {folder}");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"⚠️ Warning: Cannot create directory {folder}: {ex.Message}");
+        Console.WriteLine($"Warning: Cannot create directory {folder}: {ex.Message}");
     }
 }
 
 app.UseStaticFiles();
-// app.UseHttpsRedirection(); 
-
 app.UseAuthentication();
 app.UseAuthorization();
 
