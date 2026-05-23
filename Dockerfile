@@ -3,32 +3,28 @@
 # =========================
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
-# Fix network issues (NU1301 / IPv6 / HTTP instability)
+# Fix network issues
 ENV DOTNET_SYSTEM_NET_DISABLEIPV6=1
 ENV DOTNET_SYSTEM_NET_HTTP_USESOCKETSHTTPHANDLER=0
 
 WORKDIR /src
 
-# Copy solution + project file trước để tối ưu cache restore
-COPY ["Backend.sln", "./"]
-COPY ["Backend/Backend.csproj", "Backend/"]
+# Copy csproj trước để cache restore tốt hơn
+COPY ["RentalManagementBE.csproj", "./"]
 
-# Restore NuGet packages
-RUN dotnet restore "Backend/Backend.csproj" \
+# Restore packages
+RUN dotnet restore "RentalManagementBE.csproj" \
     --disable-parallel \
-    --verbosity minimal \
-    --no-cache
+    --verbosity minimal
 
 # Copy toàn bộ source code
 COPY . .
 
-# Build project
-WORKDIR /src/Backend
-RUN dotnet build "Backend.csproj" -c Release -o /app/build
-
-# Publish project
-RUN dotnet publish "Backend.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
+# Publish application
+RUN dotnet publish "RentalManagementBE.csproj" \
+    -c Release \
+    -o /app/publish \
+    /p:UseAppHost=false
 
 # =========================
 # RUNTIME STAGE
@@ -37,7 +33,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 
 WORKDIR /app
 
-# Tạo folder upload cần thiết
+# Tạo thư mục uploads
 RUN mkdir -p /app/wwwroot/uploads/cccd \
              /app/wwwroot/uploads/templates \
              /app/wwwroot/uploads/rooms \
@@ -46,14 +42,15 @@ RUN mkdir -p /app/wwwroot/uploads/cccd \
              /app/wwwroot/uploads/avatars \
     && chmod -R 777 /app/wwwroot
 
-# Copy published output
+# Copy published app
 COPY --from=build /app/publish .
 
-# Expose port
+# Expose API port
 EXPOSE 8080
 
-# ASP.NET listen all interfaces
+# ASP.NET Core settings
 ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Docker
 
-# Run app
-ENTRYPOINT ["dotnet", "Backend.dll"]
+# Start app
+ENTRYPOINT ["dotnet", "RentalManagementBE.dll"]
