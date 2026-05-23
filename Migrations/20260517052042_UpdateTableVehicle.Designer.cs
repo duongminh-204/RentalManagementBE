@@ -4,6 +4,7 @@ using Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Backend.Migrations
 {
     [DbContext(typeof(RentalManagementDb))]
-    partial class RentalManagementDbModelSnapshot : ModelSnapshot
+    [Migration("20260517052042_UpdateTableVehicle")]
+    partial class UpdateTableVehicle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -95,7 +98,7 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(450)")
                         .HasDefaultValue("Active");
 
-                    b.Property<int>("TenantId")
+                    b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("ContractId");
@@ -104,7 +107,7 @@ namespace Backend.Migrations
 
                     b.HasIndex("Status");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("UserId");
 
                     b.ToTable("Contracts");
                 });
@@ -493,11 +496,6 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("Available");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETDATE()");
-
                     b.Property<decimal>("WaterPrice")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(18,2)")
@@ -592,92 +590,6 @@ namespace Backend.Migrations
                     b.HasKey("ServiceId");
 
                     b.ToTable("Services");
-                });
-
-            modelBuilder.Entity("Backend.Entities.Tenant", b =>
-                {
-                    b.Property<int>("TenantId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TenantId"));
-
-                    b.Property<string>("Address")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Avatar")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CCCD")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("CCCDImage")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Gender")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<DateTime?>("MoveInDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("MoveOutDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Occupation")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<string>("Workplace")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("TenantId");
-
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasFilter("[Email] IS NOT NULL");
-
-                    b.HasIndex("PhoneNumber")
-                        .IsUnique()
-                        .HasFilter("[PhoneNumber] IS NOT NULL");
-
-                    b.ToTable("Tenants", (string)null);
                 });
 
             modelBuilder.Entity("Backend.Entities.User", b =>
@@ -857,13 +769,13 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("active");
 
-                    b.Property<int?>("TenantId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("VehicleImage")
                         .HasColumnType("nvarchar(max)");
@@ -878,9 +790,24 @@ namespace Backend.Migrations
 
                     b.HasIndex("RoomId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("UserId");
 
                     b.ToTable("Vehicles");
+                });
+
+            modelBuilder.Entity("RoomUser", b =>
+                {
+                    b.Property<int>("RoomsRoomId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantsUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("RoomsRoomId", "TenantsUserId");
+
+                    b.HasIndex("TenantsUserId");
+
+                    b.ToTable("RoomUser");
                 });
 
             modelBuilder.Entity("Backend.Entities.Building", b =>
@@ -902,15 +829,15 @@ namespace Backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Backend.Entities.Tenant", "Tenant")
+                    b.HasOne("Backend.Entities.User", "User")
                         .WithMany("Contracts")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Room");
 
-                    b.Navigation("Tenant");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Backend.Entities.Device", b =>
@@ -1068,14 +995,29 @@ namespace Backend.Migrations
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Backend.Entities.Tenant", "Tenant")
+                    b.HasOne("Backend.Entities.User", "User")
                         .WithMany("Vehicles")
-                        .HasForeignKey("TenantId")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Room");
 
-                    b.Navigation("Tenant");
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("RoomUser", b =>
+                {
+                    b.HasOne("Backend.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomsRoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("TenantsUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Backend.Entities.Building", b =>
@@ -1121,20 +1063,17 @@ namespace Backend.Migrations
                     b.Navigation("RoomServices");
                 });
 
-            modelBuilder.Entity("Backend.Entities.Tenant", b =>
-                {
-                    b.Navigation("Contracts");
-
-                    b.Navigation("Vehicles");
-                });
-
             modelBuilder.Entity("Backend.Entities.User", b =>
                 {
                     b.Navigation("Buildings");
 
+                    b.Navigation("Contracts");
+
                     b.Navigation("Invoices");
 
                     b.Navigation("Notifications");
+
+                    b.Navigation("Vehicles");
                 });
 #pragma warning restore 612, 618
         }
