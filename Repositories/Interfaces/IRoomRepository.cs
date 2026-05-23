@@ -1,4 +1,4 @@
-﻿using Backend.DTOs.Rooms;
+using Backend.DTOs.Rooms;
 using Backend.Entities;
 
 namespace Backend.Interfaces
@@ -13,6 +13,7 @@ namespace Backend.Interfaces
         Task UpdateAsync(Room room);
         Task DeleteAsync(int id);
         Task<bool> ExistsAsync(int id);
+        Task<bool> BuildingExistsAsync(int buildingId);
         Task<RoomStatsDto> GetStatsAsync(int? buildingId = null); 
     }
 }

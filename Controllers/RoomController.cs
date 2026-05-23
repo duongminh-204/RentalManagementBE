@@ -1,4 +1,4 @@
-﻿using Backend.DTOs.Rooms;
+using Backend.DTOs.Rooms;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,29 +34,65 @@ namespace Backend.Controllers
         [HttpPost]
         public async Task<ActionResult<RoomDto>> Create([FromBody] CreateRoomDto dto)
         {
-            var room = await _roomService.CreateRoomAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = room.RoomId }, new { data = room });
+            try
+            {
+                var room = await _roomService.CreateRoomAsync(dto);
+                return CreatedAtAction(nameof(GetById), new { id = room.RoomId }, new { data = room });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]
         public async Task<ActionResult<RoomDto>> Update(int id, [FromBody] UpdateRoomDto dto)
         {
-            var room = await _roomService.UpdateRoomAsync(id, dto);
-            return Ok(new { data = room });
+            try
+            {
+                var room = await _roomService.UpdateRoomAsync(id, dto);
+                return Ok(new { data = room });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
         }
 
         [HttpPatch("{id}/status")]
         public async Task<ActionResult<RoomDto>> UpdateStatus(int id, [FromBody] RoomStatusUpdateDto dto)
         {
-            var room = await _roomService.UpdateRoomStatusAsync(id, dto.Status);
-            return Ok(new { data = room });
+            try
+            {
+                var room = await _roomService.UpdateRoomStatusAsync(id, dto.Status);
+                return Ok(new { data = room });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            await _roomService.DeleteRoomAsync(id);
-            return NoContent();
+            try
+            {
+                await _roomService.DeleteRoomAsync(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
         }
 
         [HttpGet("status/{status}")]

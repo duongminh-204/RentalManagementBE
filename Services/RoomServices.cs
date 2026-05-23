@@ -1,4 +1,4 @@
-﻿using Backend.DTOs.Rooms;
+using Backend.DTOs.Rooms;
 using Backend.Entities;
 using Backend.Interfaces;
 using Backend.Services.Interfaces;
@@ -28,6 +28,10 @@ namespace Backend.Services
 
         public async Task<RoomDto> CreateRoomAsync(CreateRoomDto dto)
         {
+            // Kiểm tra Building có tồn tại không
+            if (!await _repository.BuildingExistsAsync(dto.BuildingId))
+                throw new KeyNotFoundException($"Không tìm thấy tòa nhà với ID = {dto.BuildingId}.");
+
             var existing = await _repository.GetByRoomNumberAsync(dto.RoomNumber, dto.BuildingId);
             if (existing != null)
                 throw new InvalidOperationException($"Phòng {dto.RoomNumber} đã tồn tại trong tòa nhà này.");
@@ -51,6 +55,10 @@ namespace Backend.Services
         {
             var room = await _repository.GetByIdAsync(id);
             if (room == null) throw new KeyNotFoundException("Không tìm thấy phòng.");
+
+            // Kiểm tra Building có tồn tại không
+            if (!await _repository.BuildingExistsAsync(dto.BuildingId))
+                throw new KeyNotFoundException($"Không tìm thấy tòa nhà với ID = {dto.BuildingId}.");
 
             // Kiểm tra trùng số phòng (nếu thay đổi)
             if (room.RoomName != dto.RoomNumber)

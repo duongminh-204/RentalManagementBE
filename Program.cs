@@ -63,6 +63,8 @@ builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IRoomService, RoomServices>();
 builder.Services.AddScoped<IRoomManagementRepository, RoomManagementRepository>();
 builder.Services.AddScoped<IRoomManagementService, RoomManagementService>();
+builder.Services.AddScoped<IBuildingRepository, BuildingRepository>();
+builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IContractRepository, ContractRepository>();
@@ -96,32 +98,46 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<RentalManagementDb>();
-    try
+
+    int retries = 15;
+    bool connected = false;
+
+    while (retries > 0 && !connected)
     {
-        int retries = 10;
-        while (retries > 0)
+        try
         {
-            try
+            Console.WriteLine("🔄 Checking database connection...");
+            await context.Database.MigrateAsync();
+            Console.WriteLine("✅ Database connected & migrations applied.");
+            connected = true;
+        }
+        catch (Exception ex)
+        {
+            retries--;
+            Console.WriteLine($"❌ Database not ready: {ex.Message}");
+
+            if (retries <= 0)
             {
-                await context.Database.MigrateAsync();
+                Console.WriteLine("🚫 Could not connect to database after multiple retries. App will start anyway.");
                 break;
             }
-            catch (Exception ex)
-            {
-                retries--;
-                if (retries == 0) throw;
-                Console.WriteLine($"Database not ready yet. Retrying in 5 seconds... ({ex.Message})");
-                await Task.Delay(5000);
-            }
-        }
 
-        if (!context.Roles.Any())
+            Console.WriteLine($"⏳ Retrying in 5 seconds... ({retries} retries left)");
+            await Task.Delay(5000);
+        }
+    }
+
+    // SEED DATA
+    try
+    {
+        if (connected && !context.Roles.Any())
         {
             context.Roles.AddRange(
                 new Role { Name = "Admin", Description = "Admin hệ thống" },
                 new Role { Name = "Tenant", Description = "Người Thuê Trọ" },
                 new Role { Name = "Owner", Description = "Chủ Trọ" }
             );
+
             await context.SaveChangesAsync();
             Console.WriteLine("✅ Seed Roles thành công!");
         }

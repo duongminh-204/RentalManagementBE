@@ -1,4 +1,4 @@
-﻿using Backend.Data;
+using Backend.Data;
 using Backend.DTOs.Rooms;
 using Backend.Entities;
 using Backend.Interfaces;
@@ -24,7 +24,7 @@ namespace Backend.Repositories
 
             return await query.ToListAsync();
         }
-
+         
         public async Task<Room?> GetByIdAsync(int id)
         {
             return await _context.Rooms
@@ -78,6 +78,11 @@ namespace Backend.Repositories
         public async Task<bool> ExistsAsync(int id)
         {
             return await _context.Rooms.AnyAsync(r => r.RoomId == id);
+        }
+
+        public async Task<bool> BuildingExistsAsync(int buildingId)
+        {
+            return await _context.Buildings.AnyAsync(b => b.BuildingId == buildingId);
         }
 
         public async Task<RoomStatsDto> GetStatsAsync(int? buildingId = null)
