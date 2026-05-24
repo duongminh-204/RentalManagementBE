@@ -9,11 +9,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Backend.Migrations
+namespace RentalManagementBE.Migrations
 {
     [DbContext(typeof(RentalManagementDb))]
-    [Migration("20260520111224_RefactorCode")]
-    partial class RefactorCode
+    [Migration("20260524082842_InitDatabase")]
+    partial class InitDatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -77,6 +77,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("Deposit")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -157,6 +158,7 @@ namespace Backend.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExpenseId"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("BuildingId")
@@ -197,6 +199,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("DiscountAmount")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -205,6 +208,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("ElectricFee")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -217,11 +221,13 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("OtherFee")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
                     b.Property<decimal>("ParkingFee")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -233,6 +239,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("RoomFee")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -241,6 +248,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("ServiceFee")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -251,6 +259,7 @@ namespace Backend.Migrations
                         .HasDefaultValue("Unpaid");
 
                     b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("UserId")
@@ -258,6 +267,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("WaterFee")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -282,6 +292,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("Amount")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -299,6 +310,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("UnitPrice")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -355,6 +367,7 @@ namespace Backend.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PaymentId"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("InvoiceId")
@@ -404,6 +417,7 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("Price")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("RoomId")
@@ -473,6 +487,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("ElectricPrice")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -481,6 +496,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("Price")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -503,6 +519,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("WaterPrice")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
@@ -590,6 +607,7 @@ namespace Backend.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("ServiceId");
@@ -606,6 +624,9 @@ namespace Backend.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TenantId"));
 
                     b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Avatar")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CCCD")
@@ -841,6 +862,7 @@ namespace Backend.Migrations
 
                     b.Property<decimal>("ParkingFee")
                         .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 

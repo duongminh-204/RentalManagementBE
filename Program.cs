@@ -120,7 +120,7 @@ using (var scope = app.Services.CreateScope())
 
     try
     {
-       
+
         await context.Database.MigrateAsync();
         Console.WriteLine("Database migrated successfully.");
     }
