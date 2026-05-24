@@ -13,11 +13,11 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ====================== CONFIGURATION ======================
+// ====================== CONFIG ======================
 builder.Configuration
     .SetBasePath(AppContext.BaseDirectory)
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
     .AddEnvironmentVariables();
 
 // ====================== SERVICES ======================
@@ -25,7 +25,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// CORS
+// ====================== CORS ======================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -36,7 +36,6 @@ builder.Services.AddCors(options =>
                 "http://localhost:3000",
                 "http://localhost:5000",
                 "http://127.0.0.1:5173"
-
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
@@ -44,47 +43,49 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Database
+// ====================== DB ======================
 builder.Services.AddDbContext<RentalManagementDb>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    if (string.IsNullOrWhiteSpace(connectionString))
-    {
-        throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
-    }
 
-    options.UseSqlServer(connectionString, sqlOptions =>
-    {
-        sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(30),
-            errorNumbersToAdd: null);
-    });
+    if (string.IsNullOrWhiteSpace(connectionString))
+        throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
+
+    options.UseSqlServer(connectionString);
 });
 
-// Repositories & Services
+// ====================== REPOSITORIES & SERVICES ======================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<JwtService>();
-builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IRoomService, RoomServices>();
+
 builder.Services.AddScoped<IRoomManagementRepository, RoomManagementRepository>();
 builder.Services.AddScoped<IRoomManagementService, RoomManagementService>();
+
 builder.Services.AddScoped<IBuildingRepository, BuildingRepository>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
+
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<ITenantService, TenantService>();
+
 builder.Services.AddScoped<IContractRepository, ContractRepository>();
 builder.Services.AddScoped<IContractService, ContractService>();
+
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
+
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+
 builder.Services.AddScoped<IExcelImportRepository, ExcelImportRepository>();
 builder.Services.AddScoped<IExcelImportService, ExcelImportService>();
 
-// JWT
+builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+
+// ====================== JWT ======================
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -110,45 +111,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// ====================== BUILD APP ======================
 var app = builder.Build();
 
-// ====================== SEED + MIGRATE ======================
+// ====================== MIGRATE + SEEDDATA ======================
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<RentalManagementDb>();
 
-    int retries = 15;
-    bool connected = false;
-
-    while (retries > 0 && !connected)
+    try
     {
-        try
-        {
-            Console.WriteLine("Checking database connection...");
-            await context.Database.MigrateAsync();
-            Console.WriteLine("Database connected & migrations applied.");
-            connected = true;
-        }
-        catch (Exception ex)
-        {
-            retries--;
-            Console.WriteLine($"Database not ready: {ex.Message}");
-
-            if (retries <= 0)
-            {
-                Console.WriteLine("Could not connect to database after multiple retries. App will start anyway.");
-                break;
-            }
-
-            Console.WriteLine($"Retrying in 5 seconds... ({retries} retries left)");
-            await Task.Delay(5000);
-        }
+       
+        await context.Database.MigrateAsync();
+        Console.WriteLine("Database migrated successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Migration failed: " + ex.Message);
     }
 
     try
     {
-        if (connected && !context.Roles.Any())
+        // SEED DATA
+        if (!context.Roles.Any())
         {
             context.Roles.AddRange(
                 new Role { Name = "Admin", Description = "Admin hệ thống" },
@@ -157,17 +141,17 @@ using (var scope = app.Services.CreateScope())
             );
 
             await context.SaveChangesAsync();
-            Console.WriteLine("Seed Roles successfully.");
+            Console.WriteLine("Seed roles successfully.");
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Seed data error: {ex.Message}");
+        Console.WriteLine("Seed error: " + ex.Message);
     }
 }
 
 // ====================== MIDDLEWARE ======================
-if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Docker")
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -176,34 +160,27 @@ if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Docke
 
 app.UseCors("AllowFrontend");
 
-// ====================== CREATE UPLOAD FOLDERS ======================
-var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
-
-var uploadFolders = new[]
-{
-    Path.Combine(webRoot, "uploads", "cccd"),
-    Path.Combine(webRoot, "uploads", "templates"),
-    Path.Combine(webRoot, "uploads", "rooms"),
-    Path.Combine(webRoot, "uploads", "vehicles")
-};
-
-foreach (var folder in uploadFolders)
-{
-    try
-    {
-        Directory.CreateDirectory(folder);
-        Console.WriteLine($"Created folder: {folder}");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Warning: Cannot create directory {folder}: {ex.Message}");
-    }
-}
-
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// ====================== CREATE UPLOAD FOLDERS ======================
+var webRoot = app.Environment.WebRootPath
+              ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+
+string[] folders =
+{
+    "uploads/cccd",
+    "uploads/templates",
+    "uploads/rooms",
+    "uploads/vehicles"
+};
+
+foreach (var folder in folders)
+{
+    Directory.CreateDirectory(Path.Combine(webRoot, folder));
+}
 
 app.Run();
