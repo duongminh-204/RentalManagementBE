@@ -1,13 +1,14 @@
 ﻿@echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo =========================
-echo Building & Starting Rental API...
+echo Pulling & Starting Rental API...
 echo =========================
 
 docker compose down
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 
 echo.
 echo =========================
