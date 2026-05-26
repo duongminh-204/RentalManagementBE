@@ -74,13 +74,14 @@ namespace Backend.Services
                 };
             }
 
-            var defaultRole = await _userRepository.GetRoleByNameAsync("Tenant");
-            if (defaultRole == null)
+            var selectedRoleName = NormalizeRegisterRole(request.Role);
+            var selectedRole = await _userRepository.GetRoleByNameAsync(selectedRoleName);
+            if (selectedRole == null)
             {
                 return new AuthResponseDto
                 {
                     IsSuccess = false,
-                    Message = "Không tìm thấy vai trò mặc định."
+                    Message = "Không tìm thấy vai trò đã chọn."
                 };
             }
 
@@ -91,16 +92,38 @@ namespace Backend.Services
                 Email = request.Email,
                 PhoneNumber = request.PhoneNumber,
                 PasswordHash = _passwordHasher.HashPassword(new User(), request.Password),
-                RoleId = defaultRole.RoleId,
+                RoleId = selectedRole.RoleId,
                 IsActive = true
             };
 
             await _userRepository.AddUserAsync(newUser);
 
+            newUser.Role = selectedRole;
+            var token = _jwtService.GenerateToken(newUser);
+
             return new AuthResponseDto
             {
                 IsSuccess = true,
-                Message = "Đăng ký thành công."
+                Message = "Đăng ký thành công.",
+                Token = token,
+                User = new AuthUserDto
+                {
+                    UserId = newUser.UserId,
+                    FullName = newUser.FullName,
+                    Email = newUser.Email,
+                    PhoneNumber = newUser.PhoneNumber,
+                    Role = selectedRole.Name,
+                }
+            };
+        }
+
+        private static string NormalizeRegisterRole(string? role)
+        {
+            return role?.Trim().ToLowerInvariant() switch
+            {
+                "owner" => "Owner",
+                "tenant" => "Tenant",
+                _ => "Tenant"
             };
         }
 
