@@ -83,6 +83,9 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IExcelImportRepository, ExcelImportRepository>();
 builder.Services.AddScoped<IExcelImportService, ExcelImportService>();
 
+builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // ====================== JWT ======================
