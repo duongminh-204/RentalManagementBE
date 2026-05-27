@@ -1,4 +1,5 @@
 using Backend.Services.Interfaces;
+using Backend.DTOs.Dashboard;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -37,6 +38,34 @@ public class DashboardController : ControllerBase
     {
         var data = await _dashboardService.GetDebtInfoAsync(buildingId);
         return Ok(data);
+    }
+
+    [HttpPost("debt/invoices/{invoiceId:int}/payments")]
+    public async Task<IActionResult> RecordDebtPayment(int invoiceId, [FromBody] DashboardDebtPaymentRequestDto request)
+    {
+        try
+        {
+            var data = await _dashboardService.RecordDebtPaymentAsync(invoiceId, request);
+            return Ok(data);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("debt/invoices/{invoiceId:int}/items/{itemKey}/restore")]
+    public async Task<IActionResult> RestoreDebtItem(int invoiceId, string itemKey)
+    {
+        try
+        {
+            var data = await _dashboardService.RestoreDebtItemAsync(invoiceId, itemKey);
+            return Ok(data);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("revenue/{month:int}/{year:int}")]

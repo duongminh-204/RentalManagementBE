@@ -1,5 +1,6 @@
 using Backend.Data;
 using Backend.DTOs.Dashboard;
+using Backend.Entities;
 using Backend.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,6 +49,7 @@ public class DashboardRepository : IDashboardRepository
         return await invoiceQuery
             .Select(invoice => new DashboardDebtRecordDto
             {
+                InvoiceId = invoice.InvoiceId,
                 RoomId = invoice.RoomId,
                 RoomName = invoice.Room.RoomName,
                 TenantId = invoice.Room.Contracts
@@ -78,13 +80,44 @@ public class DashboardRepository : IDashboardRepository
                 MonthYear = invoice.MonthYear,
                 Status = invoice.Status,
                 DueDate = invoice.DueDate,
-                OutstandingAmount = invoice.TotalAmount -
-                    invoice.Payments
-                        .Where(payment => payment.Status == null || payment.Status.ToLower() == "success")
-                        .Select(payment => (decimal?)payment.Amount)
-                        .Sum()!.GetValueOrDefault(),
+                TotalAmount = invoice.TotalAmount,
+                PaidAmount = invoice.Payments
+                    .Where(payment => payment.Status == null || payment.Status.ToLower() == "success")
+                    .Select(payment => (decimal?)payment.Amount)
+                    .Sum()!.GetValueOrDefault(),
+                OutstandingAmount = invoice.TotalAmount - invoice.Payments
+                    .Where(payment => payment.Status == null || payment.Status.ToLower() == "success")
+                    .Select(payment => (decimal?)payment.Amount)
+                    .Sum()!.GetValueOrDefault(),
+                RoomFee = invoice.RoomFee,
+                ElectricFee = invoice.ElectricFee,
+                WaterFee = invoice.WaterFee,
+                ServiceFee = invoice.ServiceFee,
+                ParkingFee = invoice.ParkingFee,
+                OtherFee = invoice.OtherFee,
+                DiscountAmount = invoice.DiscountAmount,
+                Payments = invoice.Payments
+                    .Where(payment => payment.Status == null || payment.Status.ToLower() == "success")
+                    .Select(payment => new DashboardDebtPaymentRecordDto
+                    {
+                        Amount = payment.Amount,
+                        Note = payment.Note,
+                    })
+                    .ToList(),
             })
             .ToListAsync();
+    }
+
+    public Task<Invoice?> GetInvoiceForPaymentAsync(int invoiceId)
+    {
+        return _context.Invoices
+            .Include(invoice => invoice.Payments)
+            .FirstOrDefaultAsync(invoice => invoice.InvoiceId == invoiceId);
+    }
+
+    public Task AddPaymentAsync(Payment payment)
+    {
+        return _context.Payments.AddAsync(payment).AsTask();
     }
 
     public async Task<decimal> GetMonthlyRevenueAsync(string monthYear, int? buildingId = null)
@@ -119,4 +152,6 @@ public class DashboardRepository : IDashboardRepository
             })
             .ToListAsync();
     }
+
+    public Task SaveChangesAsync() => _context.SaveChangesAsync();
 }
