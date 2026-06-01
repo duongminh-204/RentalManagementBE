@@ -130,4 +130,48 @@ public class RoomManagementController : ControllerBase
         await _management.RemoveTenantAsync(roomId, contractId);
         return NoContent();
     }
+
+    [HttpPost("services")]
+    public async Task<ActionResult<ServiceCatalogDto>> CreateService([FromBody] ServiceCatalogDto dto)
+    {
+        try
+         {
+             return Ok(await _management.CreateServiceAsync(dto));
+         }
+         catch (InvalidOperationException ex)
+         {
+             return BadRequest(new { message = ex.Message });
+         }
+    }
+
+    [HttpPut("services/{serviceId}")]
+    public async Task<ActionResult<ServiceCatalogDto>> UpdateService(int serviceId, [FromBody] ServiceCatalogDto dto)
+    {
+        try
+        {
+            return Ok(await _management.UpdateServiceAsync(serviceId, dto));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("services/{serviceId}")]
+    public async Task<IActionResult> DeleteService(int serviceId)
+    {
+        try
+        {
+            await _management.DeleteServiceAsync(serviceId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
 }

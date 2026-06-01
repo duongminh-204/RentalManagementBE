@@ -18,4 +18,7 @@ public interface IRoomManagementService
     Task DeleteRoomServiceAsync(int roomId, int roomServiceId);
     Task<TenantAssignmentDto> AssignTenantAsync(int roomId, AssignTenantDto dto);
     Task RemoveTenantAsync(int roomId, int contractId);
+    Task<ServiceCatalogDto> CreateServiceAsync(ServiceCatalogDto dto);
+    Task<ServiceCatalogDto> UpdateServiceAsync(int serviceId, ServiceCatalogDto dto);
+    Task DeleteServiceAsync(int serviceId);
 }

@@ -10,6 +10,8 @@ public interface IRoomManagementRepository
     void AddRoomImage(RoomImage image);
     Task<RoomImage?> GetRoomImageAsync(int roomId, int imageId, CancellationToken cancellationToken = default);
     void RemoveRoomImage(RoomImage image);
+    void AddService(Service service);
+    void RemoveService(Service service);
     void AddDevice(Device device);
     Task<Device?> GetDeviceAsync(int roomId, int deviceId, CancellationToken cancellationToken = default);
     void RemoveDevice(Device device);
