@@ -36,6 +36,10 @@ public class RoomManagementRepository : IRoomManagementRepository
 
     public void RemoveRoomImage(RoomImage image) => _db.RoomImages.Remove(image);
 
+    public void AddService(Service service) => _db.Services.Add(service);
+
+    public void RemoveService(Service service) => _db.Services.Remove(service);
+
     public void AddDevice(Device device) => _db.Devices.Add(device);
 
     public async Task<Device?> GetDeviceAsync(int roomId, int deviceId, CancellationToken cancellationToken = default) =>

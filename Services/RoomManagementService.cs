@@ -312,4 +312,55 @@ public class RoomManagementService : IRoomManagementService
 
         return MapDevice(device);
     }
+
+    public async Task<ServiceCatalogDto> CreateServiceAsync(ServiceCatalogDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.ServiceName))
+            throw new InvalidOperationException("Tên dịch vụ không được để trống.");
+
+        var service = new Service
+        {
+            ServiceName = dto.ServiceName.Trim(),
+            UnitPrice = dto.UnitPrice >= 0 ? dto.UnitPrice : 0,
+            Unit = dto.Unit,
+            Description = dto.Description,
+            IsActive = true
+        };
+
+        _repo.AddService(service);
+        await _repo.SaveChangesAsync();
+
+        dto.ServiceId = service.ServiceId;
+        dto.IsActive = service.IsActive;
+        return dto;
+    }
+
+    public async Task<ServiceCatalogDto> UpdateServiceAsync(int serviceId, ServiceCatalogDto dto)
+    {
+        var service = await _repo.GetServiceByIdAsync(serviceId)
+            ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ.");
+
+        if (string.IsNullOrWhiteSpace(dto.ServiceName))
+            throw new InvalidOperationException("Tên dịch vụ không được để trống.");
+
+        service.ServiceName = dto.ServiceName.Trim();
+        service.UnitPrice = dto.UnitPrice >= 0 ? dto.UnitPrice : 0;
+        service.Unit = dto.Unit;
+        service.Description = dto.Description;
+        service.IsActive = dto.IsActive;
+
+        await _repo.SaveChangesAsync();
+
+        dto.ServiceId = service.ServiceId;
+        return dto;
+    }
+
+    public async Task DeleteServiceAsync(int serviceId)
+    {
+        var service = await _repo.GetServiceByIdAsync(serviceId)
+            ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ.");
+
+        _repo.RemoveService(service);
+        await _repo.SaveChangesAsync();
+    }
 }
