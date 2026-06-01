@@ -1,4 +1,4 @@
-﻿namespace Backend.Entities;
+namespace Backend.Entities;
 
 public class Device
 {
@@ -13,6 +13,8 @@ public class Device
     public string Status { get; set; } = "Working";
 
     public string? Note { get; set; }
+
+    public string? ImageUrl { get; set; }
 
     public Room Room { get; set; }
 }

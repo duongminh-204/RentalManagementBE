@@ -169,7 +169,8 @@ namespace Backend.Services
                         DeviceName = d.DeviceName,
                         Quantity = d.Quantity,
                         Status = d.Status,
-                        Note = d.Note
+                        Note = d.Note,
+                        ImageUrl = d.ImageUrl
                     })
                     .ToList(),
                 Tenants = GetRoomContracts(room)

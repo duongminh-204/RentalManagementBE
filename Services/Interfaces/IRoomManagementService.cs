@@ -12,6 +12,7 @@ public interface IRoomManagementService
     Task<RoomDeviceDto> AddDeviceAsync(int roomId, CreateDeviceDto dto);
     Task<RoomDeviceDto> UpdateDeviceAsync(int roomId, int deviceId, UpdateDeviceDto dto);
     Task DeleteDeviceAsync(int roomId, int deviceId);
+    Task<RoomDeviceDto> UploadDeviceImageAsync(int roomId, int deviceId, IFormFile file);
     Task<RoomServiceItemDto> AssignServiceAsync(int roomId, AssignRoomServiceDto dto);
     Task<RoomServiceItemDto> UpdateRoomServiceAsync(int roomId, int roomServiceId, UpdateRoomServiceDto dto);
     Task DeleteRoomServiceAsync(int roomId, int roomServiceId);

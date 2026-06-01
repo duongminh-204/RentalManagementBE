@@ -80,6 +80,25 @@ public class RoomManagementController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("rooms/{roomId}/devices/{deviceId}/upload-image")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<ActionResult<RoomDeviceDto>> UploadDeviceImage(int roomId, int deviceId, IFormFile file)
+    {
+        try
+        {
+            var device = await _management.UploadDeviceImageAsync(roomId, deviceId, file);
+            return Ok(device);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPost("rooms/{roomId}/services")]
     public async Task<ActionResult<RoomServiceItemDto>> AssignService(int roomId, [FromBody] AssignRoomServiceDto dto)
     {

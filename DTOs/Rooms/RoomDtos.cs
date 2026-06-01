@@ -42,6 +42,7 @@ public class RoomDeviceDto
     public int Quantity { get; set; }
     public string Status { get; set; } = "Working";
     public string? Note { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 public class RoomTenantDto
@@ -114,6 +115,7 @@ public class CreateDeviceDto
     public int Quantity { get; set; } = 1;
     public string Status { get; set; } = "Working";
     public string? Note { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 public class UpdateDeviceDto : CreateDeviceDto;
