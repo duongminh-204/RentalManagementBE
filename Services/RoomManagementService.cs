@@ -85,7 +85,8 @@ public class RoomManagementService : IRoomManagementService
             DeviceName = dto.DeviceName.Trim(),
             Quantity = dto.Quantity > 0 ? dto.Quantity : 1,
             Status = dto.Status ?? "Working",
-            Note = dto.Note
+            Note = dto.Note,
+            ImageUrl = dto.ImageUrl
         };
         _repo.AddDevice(device);
         await _repo.SaveChangesAsync();
@@ -102,6 +103,7 @@ public class RoomManagementService : IRoomManagementService
         device.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
         device.Status = dto.Status ?? "Working";
         device.Note = dto.Note;
+        device.ImageUrl = dto.ImageUrl;
         await _repo.SaveChangesAsync();
         return MapDevice(device);
     }
@@ -220,7 +222,8 @@ public class RoomManagementService : IRoomManagementService
         DeviceName = d.DeviceName,
         Quantity = d.Quantity,
         Status = d.Status,
-        Note = d.Note
+        Note = d.Note,
+        ImageUrl = d.ImageUrl
     };
 
     private static RoomServiceItemDto MapRoomService(RoomService rs, Service s) => new()
@@ -274,5 +277,39 @@ public class RoomManagementService : IRoomManagementService
             RoomId = image.RoomId,
             ImageUrl = image.ImageUrl
         };
+    }
+
+    public async Task<RoomDeviceDto> UploadDeviceImageAsync(int roomId, int deviceId, IFormFile file)
+    {
+        await EnsureRoomExists(roomId);
+
+        var device = await _repo.GetDeviceAsync(roomId, deviceId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị.");
+
+        if (file == null || file.Length == 0)
+            throw new InvalidOperationException("File không hợp lệ.");
+
+        if (file.Length > 5 * 1024 * 1024)
+            throw new InvalidOperationException("Ảnh tối đa 5MB.");
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
+            throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
+
+        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "devices");
+        Directory.CreateDirectory(uploadsDir);
+
+        var fileName = $"{roomId}_{deviceId}_{Guid.NewGuid():N}{ext}";
+        var filePath = Path.Combine(uploadsDir, fileName);
+
+        await using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        device.ImageUrl = $"/uploads/devices/{fileName}";
+        await _repo.SaveChangesAsync();
+
+        return MapDevice(device);
     }
 }
