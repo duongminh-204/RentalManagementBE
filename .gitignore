@@ -23,7 +23,7 @@ obj/
 .env
 
 # ASP.NET Core app settings
-appsettings.Development.json
+appsettings.json
 
 # Nếu appsettings.json chứa secret thì ignore luôn
 # appsettings.json
