@@ -64,7 +64,5 @@ coverage/
 # Resharper
 _ReSharper*/
 *.DotSettings.user
-/wwwroot/uploads/rooms
-/.gitignore
-/.gitignore
-/wwwroot/uploads/devices
+/wwwroot/uploads/
+/wwwroot/uploads/*

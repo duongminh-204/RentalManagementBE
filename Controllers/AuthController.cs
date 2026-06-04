@@ -40,5 +40,18 @@ namespace Backend.Controllers
                 ? Ok(result)
                 : BadRequest(new { message = result.Message });
         }
+
+        [HttpPost("google")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _authService.GoogleLoginAsync(request);
+
+            return result.IsSuccess
+                ? Ok(result)
+                : Unauthorized(new { message = result.Message });
+        }
     }
 }

@@ -14,6 +14,11 @@ public class RegisterRequestDto
     public string FullName { get; set; } = string.Empty;
 }
 
+public class GoogleLoginRequestDto
+{
+    public string Credential { get; set; } = string.Empty;
+}
+
 public class AuthResponseDto
 {
     public string Token { get; set; } = string.Empty;
