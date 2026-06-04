@@ -38,5 +38,21 @@ namespace Backend.Repositories
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<User?> GetUserByIdAsync(int userId)
+        {
+            return await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+        }
+
+        public async Task<bool> IsEmailOrPhoneTakenByOtherAsync(string? email, string? phoneNumber, int excludeUserId)
+        {
+            return await _context.Users.AnyAsync(u =>
+                u.UserId != excludeUserId &&
+                ((email != null && u.Email == email) || (phoneNumber != null && u.PhoneNumber == phoneNumber)));
+        }
+
+        public Task<int> SaveChangesAsync() => _context.SaveChangesAsync();
     }
 }

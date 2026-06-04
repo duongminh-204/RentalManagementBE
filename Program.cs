@@ -23,7 +23,10 @@ builder.Configuration
 // ====================== SERVICES ======================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.CustomSchemaIds(type => type.ToString());
+});
 
 // ====================== CORS ======================
 builder.Services.AddCors(options =>
@@ -57,6 +60,7 @@ builder.Services.AddDbContext<RentalManagementDb>(options =>
 // ====================== REPOSITORIES & SERVICES ======================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<JwtService>();
 
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
@@ -178,7 +182,8 @@ string[] folders =
     "uploads/cccd",
     "uploads/templates",
     "uploads/rooms",
-    "uploads/vehicles"
+    "uploads/vehicles",
+    "uploads/avatars"
 };
 
 foreach (var folder in folders)
