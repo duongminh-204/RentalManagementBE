@@ -12,6 +12,10 @@ public class Service
 
     public string? Description { get; set; }
 
+    public string? Type { get; set; }
+
+    public string? Icon { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public ICollection<RoomService> RoomServices { get; set; } = new List<RoomService>();

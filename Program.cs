@@ -157,6 +157,53 @@ using (var scope = app.Services.CreateScope())
     {
         Console.WriteLine("Seed error: " + ex.Message);
     }
+
+    try
+    {
+        // SEED DANH MỤC THIẾT BỊ (DeviceCatalog)
+        if (!context.DeviceCatalogs.Any())
+        {
+            context.DeviceCatalogs.AddRange(
+                new DeviceCatalog { Name = "Máy lạnh", Type = "Điện lạnh", Icon = "AirVent" },
+                new DeviceCatalog { Name = "Tủ lạnh", Type = "Nhà bếp", Icon = "Refrigerator" },
+                new DeviceCatalog { Name = "Máy giặt", Type = "Điện gia dụng", Icon = "WashingMachine" },
+                new DeviceCatalog { Name = "Tivi", Type = "Điện gia dụng", Icon = "Tv" },
+                new DeviceCatalog { Name = "Lò vi sóng", Type = "Nhà bếp", Icon = "Microwave" },
+                new DeviceCatalog { Name = "Quạt trần", Type = "Điện gia dụng", Icon = "Fan" },
+                new DeviceCatalog { Name = "Đèn LED", Type = "Điện gia dụng", Icon = "Lightbulb" },
+                new DeviceCatalog { Name = "Giường ngủ", Type = "Nội thất", Icon = "BedDouble" },
+                new DeviceCatalog { Name = "Ghế sofa", Type = "Nội thất", Icon = "Sofa" },
+                new DeviceCatalog { Name = "Tủ quần áo", Type = "Nội thất", Icon = "Shirt" },
+                new DeviceCatalog { Name = "Bình nóng lạnh", Type = "Điện gia dụng", Icon = "Flame" },
+                new DeviceCatalog { Name = "Camera an ninh", Type = "An ninh", Icon = "Cctv" },
+                new DeviceCatalog { Name = "Bàn làm việc", Type = "Nội thất", Icon = "Table" },
+                new DeviceCatalog { Name = "Khóa cửa thông minh", Type = "An ninh", Icon = "Lock" }
+            );
+
+            await context.SaveChangesAsync();
+            Console.WriteLine("Seed device catalog successfully.");
+        }
+
+        // SEED DANH MỤC DỊCH VỤ (Service)
+        if (!context.Services.Any())
+        {
+            context.Services.AddRange(
+                new Service { ServiceName = "Internet cáp quang", Type = "Internet", Icon = "Wifi", UnitPrice = 150000m, Unit = "tháng" },
+                new Service { ServiceName = "Dọn vệ sinh", Type = "Vệ sinh", Icon = "Sparkles", UnitPrice = 50000m, Unit = "tháng" },
+                new Service { ServiceName = "Giữ xe", Type = "Giữ xe", Icon = "Car", UnitPrice = 100000m, Unit = "xe/tháng" },
+                new Service { ServiceName = "Giặt ủi", Type = "Giặt ủi", Icon = "WashingMachine", UnitPrice = 20000m, Unit = "kg" },
+                new Service { ServiceName = "Nước uống", Type = "Nước uống", Icon = "Droplet", UnitPrice = 12000m, Unit = "bình" },
+                new Service { ServiceName = "Bảo vệ 24/7", Type = "An ninh", Icon = "ShieldCheck", UnitPrice = 0m, Unit = "tháng" }
+            );
+
+            await context.SaveChangesAsync();
+            Console.WriteLine("Seed service catalog successfully.");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Seed catalog error: " + ex.Message);
+    }
 }
 
 // ====================== MIDDLEWARE ======================

@@ -19,6 +19,7 @@ public class RentalManagementDb : DbContext
     public DbSet<Contract> Contracts { get; set; }
     public DbSet<Service> Services { get; set; }
     public DbSet<RoomService> RoomServices { get; set; }
+    public DbSet<DeviceCatalog> DeviceCatalogs { get; set; }
     public DbSet<Device> Devices { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<UtilityUsage> UtilityUsages { get; set; }
@@ -229,6 +230,22 @@ public class RentalManagementDb : DbContext
             .Property(x => x.UnitPrice)
             .HasColumnType("decimal(18,2)");
 
+        modelBuilder.Entity<Service>()
+            .Property(x => x.ServiceName)
+            .HasMaxLength(100);
+
+        modelBuilder.Entity<Service>()
+            .Property(x => x.Type)
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<Service>()
+            .Property(x => x.Icon)
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<Service>()
+            .HasIndex(x => x.ServiceName)
+            .IsUnique();
+
         // =========================
         // RoomServices
         // =========================
@@ -249,7 +266,30 @@ public class RentalManagementDb : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         // =========================
-        // Devices
+        // DeviceCatalogs (danh mục thiết bị dùng chung - seed sẵn)
+        // =========================
+        modelBuilder.Entity<DeviceCatalog>(entity =>
+        {
+            entity.HasKey(x => x.DeviceCatalogId);
+
+            entity.Property(x => x.Name)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
+            entity.Property(x => x.Type)
+                  .HasMaxLength(50);
+
+            entity.Property(x => x.Icon)
+                  .HasMaxLength(50);
+
+            entity.Property(x => x.IsActive)
+                  .HasDefaultValue(true);
+
+            entity.HasIndex(x => x.Name).IsUnique();
+        });
+
+        // =========================
+        // Devices (bảng nối phòng <-> danh mục thiết bị)
         // =========================
         modelBuilder.Entity<Device>()
             .Property(x => x.Quantity)
@@ -264,6 +304,13 @@ public class RentalManagementDb : DbContext
             .WithMany(x => x.Devices)
             .HasForeignKey(x => x.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Device>()
+            .HasOne(x => x.DeviceCatalog)
+            .WithMany(x => x.Devices)
+            .HasForeignKey(x => x.DeviceCatalogId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // =========================
         // Vehicles
