@@ -60,7 +60,7 @@ public class InvoiceService : IInvoiceService
         var waterFee = waterConsumed * room.WaterPrice;
         var serviceFee = room.RoomServices
             .Where(rs => rs.Service != null)
-            .Sum(rs => rs.Quantity * rs.Service.UnitPrice);
+            .Sum(rs => rs.Service.UnitPrice);
 
         var parkingFee = dto.ParkingFeeOverride ?? room.Vehicles
             .Where(v => string.Equals(v.Status, "active", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(v.Status))
@@ -304,9 +304,9 @@ public class InvoiceService : IInvoiceService
             details.Add(new InvoiceDetail
             {
                 ItemName = roomService.Service.ServiceName,
-                Quantity = roomService.Quantity,
+                Quantity = 1,
                 UnitPrice = roomService.Service.UnitPrice,
-                Amount = roomService.Quantity * roomService.Service.UnitPrice
+                Amount = roomService.Service.UnitPrice
             });
         }
 

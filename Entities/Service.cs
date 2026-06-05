@@ -13,10 +13,6 @@ public class Service
 
     public string? Unit { get; set; }
 
-    public string? Description { get; set; }
-
-    public string? Type { get; set; }
-
     public string? Icon { get; set; }
 
     public ICollection<RoomService> RoomServices { get; set; } = new List<RoomService>();

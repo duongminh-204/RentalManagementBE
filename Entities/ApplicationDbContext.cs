@@ -236,10 +236,6 @@ public class RentalManagementDb : DbContext
             .HasDefaultValue("Monthly");
 
         modelBuilder.Entity<Service>()
-            .Property(x => x.Type)
-            .HasMaxLength(50);
-
-        modelBuilder.Entity<Service>()
             .Property(x => x.Icon)
             .HasMaxLength(50);
 
@@ -250,10 +246,6 @@ public class RentalManagementDb : DbContext
         // =========================
         // RoomServices
         // =========================
-        modelBuilder.Entity<RoomService>()
-            .Property(x => x.Quantity)
-            .HasDefaultValue(1);
-
         modelBuilder.Entity<RoomService>()
             .HasOne(x => x.Room)
             .WithMany(x => x.RoomServices)

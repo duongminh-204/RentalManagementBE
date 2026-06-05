@@ -116,31 +116,16 @@ public class RoomManagementService : IRoomManagementService
 
         var existing = await _repo.FindRoomServiceAsync(roomId, dto.ServiceId);
         if (existing != null)
-        {
-            existing.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
-            await _repo.SaveChangesAsync();
             return MapRoomService(existing, service);
-        }
 
         var roomService = new RoomService
         {
             RoomId = roomId,
-            ServiceId = dto.ServiceId,
-            Quantity = dto.Quantity > 0 ? dto.Quantity : 1
+            ServiceId = dto.ServiceId
         };
         _repo.AddRoomService(roomService);
         await _repo.SaveChangesAsync();
         return MapRoomService(roomService, service);
-    }
-
-    public async Task<RoomServiceItemDto> UpdateRoomServiceAsync(int roomId, int roomServiceId, UpdateRoomServiceDto dto)
-    {
-        var roomService = await _repo.GetRoomServiceWithServiceAsync(roomId, roomServiceId)
-            ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ phòng.");
-
-        roomService.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
-        await _repo.SaveChangesAsync();
-        return MapRoomService(roomService, roomService.Service);
     }
 
     public async Task DeleteRoomServiceAsync(int roomId, int roomServiceId)
@@ -225,8 +210,7 @@ public class RoomManagementService : IRoomManagementService
         ServiceId = rs.ServiceId,
         ServiceName = s.ServiceName,
         UnitPrice = s.UnitPrice,
-        Unit = s.Unit,
-        Quantity = rs.Quantity
+        Unit = s.Unit
     };
 
     public async Task<RoomImageDto> UploadRoomImageAsync(int roomId, IFormFile file)
@@ -318,8 +302,7 @@ public class RoomManagementService : IRoomManagementService
             ServiceName = dto.ServiceName.Trim(),
             UnitPrice = dto.UnitPrice,
             BillingCycle = NormalizeBillingCycle(dto.BillingCycle),
-            Unit = dto.Unit,
-            Description = dto.Description
+            Unit = dto.Unit
         };
 
         _repo.AddService(service);
@@ -343,7 +326,6 @@ public class RoomManagementService : IRoomManagementService
         service.UnitPrice = dto.UnitPrice;
         service.BillingCycle = NormalizeBillingCycle(dto.BillingCycle);
         service.Unit = dto.Unit;
-        service.Description = dto.Description;
 
         await _repo.SaveChangesAsync();
 
@@ -367,8 +349,7 @@ public class RoomManagementService : IRoomManagementService
         ServiceName = s.ServiceName,
         UnitPrice = s.UnitPrice,
         BillingCycle = s.BillingCycle,
-        Unit = s.Unit,
-        Description = s.Description
+        Unit = s.Unit
     };
 
     public async Task DeleteServiceAsync(int serviceId)

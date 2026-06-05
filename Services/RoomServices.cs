@@ -194,8 +194,7 @@ namespace Backend.Services
                         ServiceId = rs.ServiceId,
                         ServiceName = rs.Service.ServiceName,
                         UnitPrice = rs.Service.UnitPrice,
-                        Unit = rs.Service.Unit,
-                        Quantity = rs.Quantity
+                        Unit = rs.Service.Unit
                     })
                     .ToList()
             };

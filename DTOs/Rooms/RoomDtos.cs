@@ -91,7 +91,6 @@ public class ServiceCatalogDto
     // "Monthly" (theo tháng) hoặc "Yearly" (theo năm)
     public string BillingCycle { get; set; } = "Monthly";
     public string? Unit { get; set; }
-    public string? Description { get; set; }
 }
 
 public class DeviceCatalogDto
@@ -110,7 +109,6 @@ public class RoomServiceItemDto
     public string ServiceName { get; set; } = string.Empty;
     public decimal UnitPrice { get; set; }
     public string? Unit { get; set; }
-    public int Quantity { get; set; }
 }
 
 public class CreateRoomImageDto
@@ -132,12 +130,6 @@ public class UpdateDeviceDto : CreateDeviceDto;
 public class AssignRoomServiceDto
 {
     public int ServiceId { get; set; }
-    public int Quantity { get; set; } = 1;
-}
-
-public class UpdateRoomServiceDto
-{
-    public int Quantity { get; set; } = 1;
 }
 
 public class AssignTenantDto

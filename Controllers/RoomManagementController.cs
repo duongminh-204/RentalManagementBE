@@ -155,12 +155,6 @@ public class RoomManagementController : ControllerBase
         return Ok(await _management.AssignServiceAsync(roomId, dto));
     }
 
-    [HttpPut("rooms/{roomId}/services/{roomServiceId}")]
-    public async Task<ActionResult<RoomServiceItemDto>> UpdateRoomService(int roomId, int roomServiceId, [FromBody] UpdateRoomServiceDto dto)
-    {
-        return Ok(await _management.UpdateRoomServiceAsync(roomId, roomServiceId, dto));
-    }
-
     [HttpDelete("rooms/{roomId}/services/{roomServiceId}")]
     public async Task<IActionResult> DeleteRoomService(int roomId, int roomServiceId)
     {
