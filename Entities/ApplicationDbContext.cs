@@ -194,7 +194,31 @@ public class RentalManagementDb : DbContext
         // =========================
         modelBuilder.Entity<Contract>()
             .Property(x => x.Deposit)
+            .HasPrecision(18, 2)
             .HasDefaultValue(0m);
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.RentPrice)
+            .HasPrecision(18, 2)
+            .HasDefaultValue(0m);
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.DepositRefundAmount)
+            .HasPrecision(18, 2)
+            .HasDefaultValue(0m);
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.DepositDeductionAmount)
+            .HasPrecision(18, 2)
+            .HasDefaultValue(0m);
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.PaymentCycle)
+            .HasDefaultValue("Monthly");
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.DepositStatus)
+            .HasDefaultValue("Holding");
 
         modelBuilder.Entity<Contract>()
             .Property(x => x.Status)
@@ -208,6 +232,9 @@ public class RentalManagementDb : DbContext
             .HasIndex(x => x.Status);
 
         modelBuilder.Entity<Contract>()
+            .HasIndex(x => x.EndDate);
+
+        modelBuilder.Entity<Contract>()
             .HasOne(x => x.Room)
             .WithMany(x => x.Contracts)
             .HasForeignKey(x => x.RoomId)
@@ -217,6 +244,12 @@ public class RentalManagementDb : DbContext
             .HasOne(x => x.Tenant)
             .WithMany(x => x.Contracts)
             .HasForeignKey(x => x.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Contract>()
+            .HasOne(x => x.ParentContract)
+            .WithMany()
+            .HasForeignKey(x => x.ParentContractId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // =========================

@@ -232,7 +232,8 @@ string[] folders =
     "uploads/templates",
     "uploads/rooms",
     "uploads/vehicles",
-    "uploads/avatars"
+    "uploads/avatars",
+    "uploads/contracts"
 };
 
 foreach (var folder in folders)
