@@ -14,13 +14,6 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ====================== CONFIG ======================
-builder.Configuration
-    .SetBasePath(AppContext.BaseDirectory)
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
-    .AddEnvironmentVariables();
-
 // ====================== SERVICES ======================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

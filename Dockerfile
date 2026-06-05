@@ -16,6 +16,9 @@ RUN dotnet restore "RentalManagementBE.csproj" \
 
 COPY . .
 
+# appsettings.json không commit Git — dùng file mẫu khi build Docker (Render)
+COPY appsettings.example.json ./appsettings.json
+
 RUN dotnet publish "RentalManagementBE.csproj" \
     -c Release \
     -o /app/publish \

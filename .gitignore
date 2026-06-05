@@ -22,11 +22,8 @@ obj/
 # Environment variables
 .env
 
-# ASP.NET Core app settings
+# Local config — copy từ appsettings.example.json
 appsettings.json
-
-# Nếu appsettings.json chứa secret thì ignore luôn
-# appsettings.json
 
 # Publish output
 publish/
