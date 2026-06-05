@@ -5,6 +5,7 @@ using Backend.Repositories;
 using Backend.Repositories.Interfaces;
 using Backend.Services;
 using Backend.Services.Interfaces;
+using Backend.Services.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -62,6 +63,20 @@ builder.Services.AddDbContext<RentalManagementDb>(options =>
 
     options.UseSqlServer(connectionString);
 });
+
+// ====================== FILE STORAGE ======================
+// Development / Docker → wwwroot/uploads (Local)
+// Production + Provider=Azure → Azure Blob Storage
+builder.Services.Configure<AzureStorageOptions>(builder.Configuration.GetSection("AzureStorage"));
+
+var useAzureStorage = builder.Environment.IsProduction()
+    && (builder.Configuration["FileStorage:Provider"] ?? "Local")
+        .Equals("Azure", StringComparison.OrdinalIgnoreCase);
+
+if (useAzureStorage)
+    builder.Services.AddSingleton<IFileStorageService, AzureBlobStorageService>();
+else
+    builder.Services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 
 // ====================== REPOSITORIES & SERVICES ======================
 builder.Services.AddScoped<IUserRepository, UserRepository>();

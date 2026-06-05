@@ -9,10 +9,12 @@ namespace Backend.Controllers;
 public class ContractsController : ControllerBase
 {
     private readonly IContractService _contracts;
+    private readonly IFileStorageService _fileStorage;
 
-    public ContractsController(IContractService contracts)
+    public ContractsController(IContractService contracts, IFileStorageService fileStorage)
     {
         _contracts = contracts;
+        _fileStorage = fileStorage;
     }
 
     [HttpGet]
@@ -189,17 +191,13 @@ public class ContractsController : ControllerBase
         if (contract?.FileUrl == null)
             return NotFound();
 
-        var webRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
-        var relative = contract.FileUrl.TrimStart('/');
-        var fullPath = Path.Combine(webRoot, relative.Replace('/', Path.DirectorySeparatorChar));
-        if (!System.IO.File.Exists(fullPath))
+        if (_fileStorage.IsRemoteUrl(contract.FileUrl))
+            return Redirect(contract.FileUrl);
+
+        var download = await _fileStorage.OpenReadAsync(contract.FileUrl);
+        if (download == null)
             return NotFound();
 
-        var contentType = fullPath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
-            ? "application/pdf"
-            : fullPath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-                ? "text/plain"
-                : "application/octet-stream";
-        return PhysicalFile(fullPath, contentType, Path.GetFileName(fullPath));
+        return File(download.Stream, download.ContentType, download.FileName);
     }
 }

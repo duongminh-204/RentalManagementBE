@@ -3,6 +3,7 @@ using System.Text;
 using Backend.DTOs.Dashboard;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
+using Backend.Services.Interfaces;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Identity;
 
@@ -49,16 +50,16 @@ public class ExcelImportService : Interfaces.IExcelImportService
 
     private readonly IExcelImportRepository _excelImportRepository;
     private readonly IPasswordHasher<User> _passwordHasher;
-    private readonly IWebHostEnvironment _environment;
+    private readonly IFileStorageService _fileStorage;
 
     public ExcelImportService(
         IExcelImportRepository excelImportRepository,
         IPasswordHasher<User> passwordHasher,
-        IWebHostEnvironment environment)
+        IFileStorageService fileStorage)
     {
         _excelImportRepository = excelImportRepository;
         _passwordHasher = passwordHasher;
-        _environment = environment;
+        _fileStorage = fileStorage;
     }
 
     public async Task<ExcelImportResultDto> ImportDashboardSeedAsync(IFormFile file, CancellationToken cancellationToken = default)
@@ -224,22 +225,17 @@ public class ExcelImportService : Interfaces.IExcelImportService
             }
         }
 
-        var templatePath = GetTemplateFilePath();
-        Directory.CreateDirectory(Path.GetDirectoryName(templatePath)!);
-
         await using var sourceStream = file.OpenReadStream();
-        await using var targetStream = new FileStream(templatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await sourceStream.CopyToAsync(targetStream, cancellationToken);
+        using var memoryStream = new MemoryStream();
+        await sourceStream.CopyToAsync(memoryStream, cancellationToken);
+        await _fileStorage.SaveBytesAsync(memoryStream.ToArray(), TemplateDirectoryName, TemplateFileName, cancellationToken);
     }
 
     public async Task<(byte[] Content, string FileName)> GetTemplateFileAsync(CancellationToken cancellationToken = default)
     {
-        var templatePath = GetTemplateFilePath();
-        if (File.Exists(templatePath))
-        {
-            var bytes = await File.ReadAllBytesAsync(templatePath, cancellationToken);
+        var bytes = await _fileStorage.ReadBytesAsync(TemplateDirectoryName, TemplateFileName, cancellationToken);
+        if (bytes != null)
             return (bytes, TemplateFileName);
-        }
 
         return (GenerateTemplate(), TemplateFileName);
     }
@@ -769,12 +765,6 @@ public class ExcelImportService : Interfaces.IExcelImportService
     private static string? NullIfEmpty(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
-
-    private string GetTemplateFilePath()
-    {
-        var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        return Path.Combine(webRoot, "uploads", TemplateDirectoryName, TemplateFileName);
     }
 
     private static void AddHeader(IXLWorksheet worksheet, IReadOnlyList<string> headers)

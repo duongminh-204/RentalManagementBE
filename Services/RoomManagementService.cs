@@ -9,12 +9,12 @@ namespace Backend.Services;
 public class RoomManagementService : IRoomManagementService
 {
     private readonly IRoomManagementRepository _repo;
-    private readonly IWebHostEnvironment _env;
+    private readonly IFileStorageService _fileStorage;
 
-    public RoomManagementService(IRoomManagementRepository repo, IWebHostEnvironment env)
+    public RoomManagementService(IRoomManagementRepository repo, IFileStorageService fileStorage)
     {
         _repo = repo;
-        _env = env;
+        _fileStorage = fileStorage;
     }
 
     public async Task<IEnumerable<ServiceCatalogDto>> GetServiceCatalogAsync()
@@ -227,21 +227,13 @@ public class RoomManagementService : IRoomManagementService
         if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
             throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
 
-        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "rooms");
-        Directory.CreateDirectory(uploadsDir);
-
         var fileName = $"{roomId}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
+        var imageUrl = await _fileStorage.UploadFormFileAsync(file, "rooms", fileName);
 
         var image = new RoomImage
         {
             RoomId = roomId,
-            ImageUrl = $"/uploads/rooms/{fileName}"
+            ImageUrl = imageUrl
         };
 
         _repo.AddRoomImage(image);
@@ -272,18 +264,8 @@ public class RoomManagementService : IRoomManagementService
         if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
             throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
 
-        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "devices");
-        Directory.CreateDirectory(uploadsDir);
-
         var fileName = $"{roomId}_{deviceId}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        device.ImageUrl = $"/uploads/devices/{fileName}";
+        device.ImageUrl = await _fileStorage.UploadFormFileAsync(file, "devices", fileName);
         await _repo.SaveChangesAsync();
 
         return MapDevice(device);

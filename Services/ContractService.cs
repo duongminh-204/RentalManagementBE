@@ -10,7 +10,7 @@ namespace Backend.Services;
 public class ContractService : IContractService
 {
     private readonly IContractRepository _contracts;
-    private readonly IWebHostEnvironment _env;
+    private readonly IFileStorageService _fileStorage;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -18,10 +18,10 @@ public class ContractService : IContractService
         WriteIndented = false
     };
 
-    public ContractService(IContractRepository contracts, IWebHostEnvironment env)
+    public ContractService(IContractRepository contracts, IFileStorageService fileStorage)
     {
         _contracts = contracts;
-        _env = env;
+        _fileStorage = fileStorage;
     }
 
     public async Task<IEnumerable<ContractDto>> GetAllAsync(
@@ -369,22 +369,12 @@ public class ContractService : IContractService
         if (file == null || file.Length == 0)
             throw new InvalidOperationException("File không hợp lệ.");
 
-        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "contracts");
-        Directory.CreateDirectory(uploadsDir);
-
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (ext is not (".pdf" or ".jpg" or ".jpeg" or ".png"))
             throw new InvalidOperationException("Chỉ chấp nhận PDF hoặc ảnh.");
 
         var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        contract.ContractFile = $"/uploads/contracts/{fileName}";
+        contract.ContractFile = await _fileStorage.UploadFormFileAsync(file, "contracts", fileName);
         await _contracts.SaveChangesAsync();
         return contract.ContractFile;
     }
@@ -395,17 +385,9 @@ public class ContractService : IContractService
             ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng.");
 
         var templateName = dto?.TemplateName ?? "default";
-        var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-        var templatesDir = Path.Combine(webRoot, "uploads", "templates");
-        Directory.CreateDirectory(templatesDir);
-
-        var templatePath = Path.Combine(templatesDir, $"{templateName}.txt");
-        if (!File.Exists(templatePath))
-        {
-            await File.WriteAllTextAsync(templatePath, DefaultContractTemplate, Encoding.UTF8);
-        }
-
-        var template = await File.ReadAllTextAsync(templatePath, Encoding.UTF8);
+        var templateFileName = $"{templateName}.txt";
+        await _fileStorage.EnsureTextFileAsync("templates", templateFileName, DefaultContractTemplate);
+        var template = await _fileStorage.ReadTextAsync("templates", templateFileName);
         var (terms, notes) = ParseNote(contract.Note);
 
         var content = template
@@ -421,16 +403,10 @@ public class ContractService : IContractService
             .Replace("{{TERMS}}", terms ?? "")
             .Replace("{{NOTES}}", notes ?? "");
 
-        var uploadsDir = Path.Combine(webRoot, "uploads", "contracts");
-        Directory.CreateDirectory(uploadsDir);
-
         var fileName = $"{id}_generated_{Guid.NewGuid():N}.txt";
-        var filePath = Path.Combine(uploadsDir, fileName);
-        await File.WriteAllTextAsync(filePath, content, Encoding.UTF8);
-
         var tracked = await _contracts.GetTrackedByIdAsync(id)
             ?? throw new KeyNotFoundException("Không tìm thấy hợp đồng.");
-        tracked.ContractFile = $"/uploads/contracts/{fileName}";
+        tracked.ContractFile = await _fileStorage.UploadTextAsync(content, "contracts", fileName);
         await _contracts.SaveChangesAsync();
 
         return tracked.ContractFile;

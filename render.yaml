@@ -9,3 +9,9 @@ services:
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      - key: FileStorage__Provider
+        value: Azure
+      - key: AzureStorage__ConnectionString
+        sync: false
+      - key: AzureStorage__ContainerName
+        value: rental-uploads

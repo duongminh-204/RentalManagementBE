@@ -10,17 +10,17 @@ namespace Backend.Services;
 public class VehicleService : IVehicleService
 {
     private readonly IVehicleRepository _vehicles;
-    private readonly IWebHostEnvironment _env;
+    private readonly IFileStorageService _fileStorage;
 
     private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
     {
         "active", "inactive", "unknown"
     };
 
-    public VehicleService(IVehicleRepository vehicles, IWebHostEnvironment env)
+    public VehicleService(IVehicleRepository vehicles, IFileStorageService fileStorage)
     {
         _vehicles = vehicles;
-        _env = env;
+        _fileStorage = fileStorage;
     }
 
     public async Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null, int? buildingId = null)
@@ -152,7 +152,7 @@ public class VehicleService : IVehicleService
             ?? throw new KeyNotFoundException("Không tìm thấy xe.");
 
         if (!string.IsNullOrEmpty(vehicle.VehicleImage))
-            TryDeletePhysicalFile(vehicle.VehicleImage);
+            await _fileStorage.DeleteAsync(vehicle.VehicleImage);
 
         _vehicles.Remove(vehicle);
         await _vehicles.SaveChangesAsync();
@@ -173,24 +173,11 @@ public class VehicleService : IVehicleService
         if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
             throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
 
-        var uploadsDir = Path.Combine(
-            _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"),
-            "uploads",
-            "vehicles");
-        Directory.CreateDirectory(uploadsDir);
-
         if (!string.IsNullOrEmpty(vehicle.VehicleImage))
-            TryDeletePhysicalFile(vehicle.VehicleImage);
+            await _fileStorage.DeleteAsync(vehicle.VehicleImage);
 
         var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        vehicle.VehicleImage = $"/uploads/vehicles/{fileName}";
+        vehicle.VehicleImage = await _fileStorage.UploadFormFileAsync(file, "vehicles", fileName);
         vehicle.UpdatedAt = DateTime.UtcNow;
         await _vehicles.SaveChangesAsync();
 
@@ -281,24 +268,4 @@ public class VehicleService : IVehicleService
         UpdatedAt = v.UpdatedAt
     };
 
-    private void TryDeletePhysicalFile(string relativePath)
-    {
-        try
-        {
-            var fileName = Path.GetFileName(relativePath);
-            if (string.IsNullOrEmpty(fileName)) return;
-
-            var fullPath = Path.Combine(
-                _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"),
-                "uploads",
-                "vehicles",
-                fileName);
-            if (File.Exists(fullPath))
-                File.Delete(fullPath);
-        }
-        catch
-        {
-            // ignore cleanup errors
-        }
-    }
 }

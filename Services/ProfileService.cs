@@ -11,16 +11,16 @@ public class ProfileService : IProfileService
 {
     private readonly IUserRepository _users;
     private readonly IPasswordHasher<User> _passwordHasher;
-    private readonly IWebHostEnvironment _env;
+    private readonly IFileStorageService _fileStorage;
 
     public ProfileService(
         IUserRepository users,
         IPasswordHasher<User> passwordHasher,
-        IWebHostEnvironment env)
+        IFileStorageService fileStorage)
     {
         _users = users;
         _passwordHasher = passwordHasher;
-        _env = env;
+        _fileStorage = fileStorage;
     }
 
     public async Task<ProfileDto> GetProfileAsync(int userId)
@@ -71,23 +71,11 @@ public class ProfileService : IProfileService
         if (ext is not (".jpg" or ".jpeg" or ".png"))
             throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG.");
 
-        var uploadsDir = Path.Combine(
-            _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"),
-            "uploads", "avatars");
-        Directory.CreateDirectory(uploadsDir);
-
         if (!string.IsNullOrEmpty(user.Avatar))
-            TryDeletePhysicalFile(user.Avatar, "avatars");
+            await _fileStorage.DeleteAsync(user.Avatar);
 
         var fileName = $"user_{userId}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        user.Avatar = $"/uploads/avatars/{fileName}";
+        user.Avatar = await _fileStorage.UploadFormFileAsync(file, "avatars", fileName);
         user.UpdatedAt = DateTime.Now;
         await _users.SaveChangesAsync();
 
@@ -124,26 +112,4 @@ public class ProfileService : IProfileService
         CreatedAt = user.CreatedAt
     };
 
-    private void TryDeletePhysicalFile(string relativePath, string folder)
-    {
-        try
-        {
-            var fileName = Path.GetFileName(relativePath);
-            if (string.IsNullOrEmpty(fileName)) return;
-
-            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-            var fullPath = Path.GetFullPath(Path.Combine(webRoot, "uploads", folder, fileName));
-
-            // Chống path-traversal
-            if (!fullPath.StartsWith(Path.GetFullPath(webRoot), StringComparison.OrdinalIgnoreCase))
-                return;
-
-            if (File.Exists(fullPath))
-                File.Delete(fullPath);
-        }
-        catch
-        {
-            // Bỏ qua lỗi khi dọn file cũ
-        }
-    }
 }
