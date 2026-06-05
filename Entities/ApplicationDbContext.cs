@@ -269,9 +269,6 @@ public class RentalManagementDb : DbContext
                   .IsRequired()
                   .HasMaxLength(100);
 
-            entity.Property(x => x.Type)
-                  .HasMaxLength(50);
-
             entity.Property(x => x.Icon)
                   .HasMaxLength(50);
 

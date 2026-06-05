@@ -164,20 +164,20 @@ using (var scope = app.Services.CreateScope())
         if (!context.DeviceCatalogs.Any())
         {
             context.DeviceCatalogs.AddRange(
-                new DeviceCatalog { Name = "Máy lạnh", Type = "Điện lạnh", Icon = "AirVent" },
-                new DeviceCatalog { Name = "Tủ lạnh", Type = "Nhà bếp", Icon = "Refrigerator" },
-                new DeviceCatalog { Name = "Máy giặt", Type = "Điện gia dụng", Icon = "WashingMachine" },
-                new DeviceCatalog { Name = "Tivi", Type = "Điện gia dụng", Icon = "Tv" },
-                new DeviceCatalog { Name = "Lò vi sóng", Type = "Nhà bếp", Icon = "Microwave" },
-                new DeviceCatalog { Name = "Quạt trần", Type = "Điện gia dụng", Icon = "Fan" },
-                new DeviceCatalog { Name = "Đèn LED", Type = "Điện gia dụng", Icon = "Lightbulb" },
-                new DeviceCatalog { Name = "Giường ngủ", Type = "Nội thất", Icon = "BedDouble" },
-                new DeviceCatalog { Name = "Ghế sofa", Type = "Nội thất", Icon = "Sofa" },
-                new DeviceCatalog { Name = "Tủ quần áo", Type = "Nội thất", Icon = "Shirt" },
-                new DeviceCatalog { Name = "Bình nóng lạnh", Type = "Điện gia dụng", Icon = "Flame" },
-                new DeviceCatalog { Name = "Camera an ninh", Type = "An ninh", Icon = "Cctv" },
-                new DeviceCatalog { Name = "Bàn làm việc", Type = "Nội thất", Icon = "Table" },
-                new DeviceCatalog { Name = "Khóa cửa thông minh", Type = "An ninh", Icon = "Lock" }
+                new DeviceCatalog { Name = "Máy lạnh", Icon = "AirVent" },
+                new DeviceCatalog { Name = "Tủ lạnh", Icon = "Refrigerator" },
+                new DeviceCatalog { Name = "Máy giặt", Icon = "WashingMachine" },
+                new DeviceCatalog { Name = "Tivi", Icon = "Tv" },
+                new DeviceCatalog { Name = "Lò vi sóng", Icon = "Microwave" },
+                new DeviceCatalog { Name = "Quạt trần", Icon = "Fan" },
+                new DeviceCatalog { Name = "Đèn LED", Icon = "Lightbulb" },
+                new DeviceCatalog { Name = "Giường ngủ", Icon = "BedDouble" },
+                new DeviceCatalog { Name = "Ghế sofa", Icon = "Sofa" },
+                new DeviceCatalog { Name = "Tủ quần áo", Icon = "Shirt" },
+                new DeviceCatalog { Name = "Bình nóng lạnh", Icon = "Flame" },
+                new DeviceCatalog { Name = "Camera an ninh", Icon = "Cctv" },
+                new DeviceCatalog { Name = "Bàn làm việc", Icon = "Table" },
+                new DeviceCatalog { Name = "Khóa cửa thông minh", Icon = "Lock" }
             );
 
             await context.SaveChangesAsync();

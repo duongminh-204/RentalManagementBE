@@ -77,7 +77,6 @@ public class RoomManagementService : IRoomManagementService
             DeviceName = dto.DeviceName.Trim(),
             Quantity = dto.Quantity > 0 ? dto.Quantity : 1,
             Status = dto.Status ?? "Working",
-            Note = dto.Note,
             ImageUrl = dto.ImageUrl
         };
         _repo.AddDevice(device);
@@ -94,7 +93,6 @@ public class RoomManagementService : IRoomManagementService
         device.DeviceName = dto.DeviceName.Trim();
         device.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
         device.Status = dto.Status ?? "Working";
-        device.Note = dto.Note;
         device.ImageUrl = dto.ImageUrl;
         await _repo.SaveChangesAsync();
         return MapDevice(device);
@@ -199,7 +197,6 @@ public class RoomManagementService : IRoomManagementService
         DeviceName = d.DeviceName,
         Quantity = d.Quantity,
         Status = d.Status,
-        Note = d.Note,
         ImageUrl = d.ImageUrl
     };
 
@@ -379,7 +376,6 @@ public class RoomManagementService : IRoomManagementService
         var entity = new DeviceCatalog
         {
             Name = name,
-            Type = string.IsNullOrWhiteSpace(dto.Type) ? null : dto.Type.Trim(),
             Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim()
         };
 
@@ -402,7 +398,6 @@ public class RoomManagementService : IRoomManagementService
             throw new InvalidOperationException("Thiết bị này đã có trong danh mục.");
 
         entity.Name = name;
-        entity.Type = string.IsNullOrWhiteSpace(dto.Type) ? null : dto.Type.Trim();
         entity.Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim();
 
         await _repo.SaveChangesAsync();
@@ -423,7 +418,6 @@ public class RoomManagementService : IRoomManagementService
     {
         DeviceCatalogId = d.DeviceCatalogId,
         Name = d.Name,
-        Type = d.Type,
         Icon = d.Icon
     };
 }

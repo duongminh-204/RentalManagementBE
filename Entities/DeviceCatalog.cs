@@ -10,8 +10,6 @@ public class DeviceCatalog
 
     public string Name { get; set; } = string.Empty;
 
-    public string? Type { get; set; }
-
     public string? Icon { get; set; }
 
     public ICollection<Device> Devices { get; set; } = new List<Device>();
