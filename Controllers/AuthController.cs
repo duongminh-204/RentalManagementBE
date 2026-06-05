@@ -53,5 +53,31 @@ namespace Backend.Controllers
                 ? Ok(result)
                 : Unauthorized(new { message = result.Message });
         }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _authService.ForgotPasswordAsync(request);
+
+            return result.IsSuccess
+                ? Ok(result)
+                : BadRequest(new { message = result.Message });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _authService.ResetPasswordAsync(request);
+
+            return result.IsSuccess
+                ? Ok(result)
+                : BadRequest(new { message = result.Message });
+        }
     }
 }
