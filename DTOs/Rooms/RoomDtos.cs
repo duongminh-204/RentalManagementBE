@@ -93,6 +93,15 @@ public class ServiceCatalogDto
     public bool IsActive { get; set; }
 }
 
+public class DeviceCatalogDto
+{
+    public int DeviceCatalogId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Type { get; set; }
+    public string? Icon { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
 public class RoomServiceItemDto
 {
     public int RoomServiceId { get; set; }

@@ -40,6 +40,24 @@ public class RoomManagementRepository : IRoomManagementRepository
 
     public void RemoveService(Service service) => _db.Services.Remove(service);
 
+    public async Task<List<DeviceCatalog>> GetActiveDeviceCatalogsOrderedAsync(CancellationToken cancellationToken = default) =>
+        await _db.DeviceCatalogs
+            .Where(d => d.IsActive)
+            .OrderBy(d => d.Name)
+            .ToListAsync(cancellationToken);
+
+    public void AddDeviceCatalog(DeviceCatalog catalog) => _db.DeviceCatalogs.Add(catalog);
+
+    public async Task<DeviceCatalog?> GetDeviceCatalogByIdAsync(int deviceCatalogId, CancellationToken cancellationToken = default) =>
+        await _db.DeviceCatalogs.FirstOrDefaultAsync(d => d.DeviceCatalogId == deviceCatalogId, cancellationToken);
+
+    public void RemoveDeviceCatalog(DeviceCatalog catalog) => _db.DeviceCatalogs.Remove(catalog);
+
+    public async Task<bool> DeviceCatalogNameExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default) =>
+        await _db.DeviceCatalogs.AnyAsync(
+            d => d.Name == name && (excludeId == null || d.DeviceCatalogId != excludeId.Value),
+            cancellationToken);
+
     public void AddDevice(Device device) => _db.Devices.Add(device);
 
     public async Task<Device?> GetDeviceAsync(int roomId, int deviceId, CancellationToken cancellationToken = default) =>

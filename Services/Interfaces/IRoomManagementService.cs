@@ -21,4 +21,8 @@ public interface IRoomManagementService
     Task<ServiceCatalogDto> CreateServiceAsync(ServiceCatalogDto dto);
     Task<ServiceCatalogDto> UpdateServiceAsync(int serviceId, ServiceCatalogDto dto);
     Task DeleteServiceAsync(int serviceId);
+    Task<IEnumerable<DeviceCatalogDto>> GetDeviceCatalogAsync();
+    Task<DeviceCatalogDto> CreateDeviceCatalogAsync(DeviceCatalogDto dto);
+    Task<DeviceCatalogDto> UpdateDeviceCatalogAsync(int deviceCatalogId, DeviceCatalogDto dto);
+    Task DeleteDeviceCatalogAsync(int deviceCatalogId);
 }

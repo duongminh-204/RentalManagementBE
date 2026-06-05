@@ -363,4 +363,73 @@ public class RoomManagementService : IRoomManagementService
         _repo.RemoveService(service);
         await _repo.SaveChangesAsync();
     }
+
+    public async Task<IEnumerable<DeviceCatalogDto>> GetDeviceCatalogAsync()
+    {
+        var items = await _repo.GetActiveDeviceCatalogsOrderedAsync();
+        return items.Select(MapDeviceCatalog);
+    }
+
+    public async Task<DeviceCatalogDto> CreateDeviceCatalogAsync(DeviceCatalogDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            throw new InvalidOperationException("Tên thiết bị không được để trống.");
+
+        var name = dto.Name.Trim();
+        if (await _repo.DeviceCatalogNameExistsAsync(name))
+            throw new InvalidOperationException("Thiết bị này đã có trong danh mục.");
+
+        var entity = new DeviceCatalog
+        {
+            Name = name,
+            Type = string.IsNullOrWhiteSpace(dto.Type) ? null : dto.Type.Trim(),
+            Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim(),
+            IsActive = true
+        };
+
+        _repo.AddDeviceCatalog(entity);
+        await _repo.SaveChangesAsync();
+
+        return MapDeviceCatalog(entity);
+    }
+
+    public async Task<DeviceCatalogDto> UpdateDeviceCatalogAsync(int deviceCatalogId, DeviceCatalogDto dto)
+    {
+        var entity = await _repo.GetDeviceCatalogByIdAsync(deviceCatalogId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị trong danh mục.");
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            throw new InvalidOperationException("Tên thiết bị không được để trống.");
+
+        var name = dto.Name.Trim();
+        if (await _repo.DeviceCatalogNameExistsAsync(name, deviceCatalogId))
+            throw new InvalidOperationException("Thiết bị này đã có trong danh mục.");
+
+        entity.Name = name;
+        entity.Type = string.IsNullOrWhiteSpace(dto.Type) ? null : dto.Type.Trim();
+        entity.Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim();
+        entity.IsActive = dto.IsActive;
+
+        await _repo.SaveChangesAsync();
+
+        return MapDeviceCatalog(entity);
+    }
+
+    public async Task DeleteDeviceCatalogAsync(int deviceCatalogId)
+    {
+        var entity = await _repo.GetDeviceCatalogByIdAsync(deviceCatalogId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị trong danh mục.");
+
+        _repo.RemoveDeviceCatalog(entity);
+        await _repo.SaveChangesAsync();
+    }
+
+    private static DeviceCatalogDto MapDeviceCatalog(DeviceCatalog d) => new()
+    {
+        DeviceCatalogId = d.DeviceCatalogId,
+        Name = d.Name,
+        Type = d.Type,
+        Icon = d.Icon,
+        IsActive = d.IsActive
+    };
 }

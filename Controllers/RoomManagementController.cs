@@ -22,6 +22,56 @@ public class RoomManagementController : ControllerBase
         return Ok(await _management.GetServiceCatalogAsync());
     }
 
+    [HttpGet("device-catalog")]
+    public async Task<ActionResult<IEnumerable<DeviceCatalogDto>>> GetDeviceCatalog()
+    {
+        return Ok(await _management.GetDeviceCatalogAsync());
+    }
+
+    [HttpPost("device-catalog")]
+    public async Task<ActionResult<DeviceCatalogDto>> CreateDeviceCatalog([FromBody] DeviceCatalogDto dto)
+    {
+        try
+        {
+            return Ok(await _management.CreateDeviceCatalogAsync(dto));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("device-catalog/{deviceCatalogId}")]
+    public async Task<ActionResult<DeviceCatalogDto>> UpdateDeviceCatalog(int deviceCatalogId, [FromBody] DeviceCatalogDto dto)
+    {
+        try
+        {
+            return Ok(await _management.UpdateDeviceCatalogAsync(deviceCatalogId, dto));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("device-catalog/{deviceCatalogId}")]
+    public async Task<IActionResult> DeleteDeviceCatalog(int deviceCatalogId)
+    {
+        try
+        {
+            await _management.DeleteDeviceCatalogAsync(deviceCatalogId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
     [HttpGet("tenants/candidates")]
     public async Task<ActionResult<IEnumerable<TenantPickerDto>>> GetTenantCandidates()
     {
