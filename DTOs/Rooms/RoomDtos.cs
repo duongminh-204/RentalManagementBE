@@ -88,9 +88,10 @@ public class ServiceCatalogDto
     public int ServiceId { get; set; }
     public string ServiceName { get; set; } = string.Empty;
     public decimal UnitPrice { get; set; }
+    // "Monthly" (theo tháng) hoặc "Yearly" (theo năm)
+    public string BillingCycle { get; set; } = "Monthly";
     public string? Unit { get; set; }
     public string? Description { get; set; }
-    public bool IsActive { get; set; }
 }
 
 public class DeviceCatalogDto
@@ -99,7 +100,6 @@ public class DeviceCatalogDto
     public string Name { get; set; } = string.Empty;
     public string? Type { get; set; }
     public string? Icon { get; set; }
-    public bool IsActive { get; set; } = true;
 }
 
 public class RoomServiceItemDto

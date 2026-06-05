@@ -16,7 +16,6 @@ public class RoomManagementRepository : IRoomManagementRepository
 
     public async Task<List<Service>> GetActiveServicesOrderedAsync(CancellationToken cancellationToken = default) =>
         await _db.Services
-            .Where(s => s.IsActive)
             .OrderBy(s => s.ServiceName)
             .ToListAsync(cancellationToken);
 
@@ -42,7 +41,6 @@ public class RoomManagementRepository : IRoomManagementRepository
 
     public async Task<List<DeviceCatalog>> GetActiveDeviceCatalogsOrderedAsync(CancellationToken cancellationToken = default) =>
         await _db.DeviceCatalogs
-            .Where(d => d.IsActive)
             .OrderBy(d => d.Name)
             .ToListAsync(cancellationToken);
 

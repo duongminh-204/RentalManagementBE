@@ -223,16 +223,17 @@ public class RentalManagementDb : DbContext
         // Services
         // =========================
         modelBuilder.Entity<Service>()
-            .Property(x => x.IsActive)
-            .HasDefaultValue(true);
-
-        modelBuilder.Entity<Service>()
             .Property(x => x.UnitPrice)
             .HasColumnType("decimal(18,2)");
 
         modelBuilder.Entity<Service>()
             .Property(x => x.ServiceName)
             .HasMaxLength(100);
+
+        modelBuilder.Entity<Service>()
+            .Property(x => x.BillingCycle)
+            .HasMaxLength(20)
+            .HasDefaultValue("Monthly");
 
         modelBuilder.Entity<Service>()
             .Property(x => x.Type)
@@ -281,9 +282,6 @@ public class RentalManagementDb : DbContext
 
             entity.Property(x => x.Icon)
                   .HasMaxLength(50);
-
-            entity.Property(x => x.IsActive)
-                  .HasDefaultValue(true);
 
             entity.HasIndex(x => x.Name).IsUnique();
         });

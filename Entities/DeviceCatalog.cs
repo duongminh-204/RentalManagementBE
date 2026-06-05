@@ -14,7 +14,5 @@ public class DeviceCatalog
 
     public string? Icon { get; set; }
 
-    public bool IsActive { get; set; } = true;
-
     public ICollection<Device> Devices { get; set; } = new List<Device>();
 }

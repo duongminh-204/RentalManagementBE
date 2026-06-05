@@ -20,15 +20,7 @@ public class RoomManagementService : IRoomManagementService
     public async Task<IEnumerable<ServiceCatalogDto>> GetServiceCatalogAsync()
     {
         var services = await _repo.GetActiveServicesOrderedAsync();
-        return services.Select(s => new ServiceCatalogDto
-        {
-            ServiceId = s.ServiceId,
-            ServiceName = s.ServiceName,
-            UnitPrice = s.UnitPrice,
-            Unit = s.Unit,
-            Description = s.Description,
-            IsActive = s.IsActive
-        });
+        return services.Select(MapService);
     }
 
     public async Task<IEnumerable<TenantPickerDto>> GetTenantCandidatesAsync()
@@ -318,21 +310,22 @@ public class RoomManagementService : IRoomManagementService
         if (string.IsNullOrWhiteSpace(dto.ServiceName))
             throw new InvalidOperationException("Tên dịch vụ không được để trống.");
 
+        if (dto.UnitPrice < 0)
+            throw new InvalidOperationException("Giá dịch vụ không hợp lệ.");
+
         var service = new Service
         {
             ServiceName = dto.ServiceName.Trim(),
-            UnitPrice = dto.UnitPrice >= 0 ? dto.UnitPrice : 0,
+            UnitPrice = dto.UnitPrice,
+            BillingCycle = NormalizeBillingCycle(dto.BillingCycle),
             Unit = dto.Unit,
-            Description = dto.Description,
-            IsActive = true
+            Description = dto.Description
         };
 
         _repo.AddService(service);
         await _repo.SaveChangesAsync();
 
-        dto.ServiceId = service.ServiceId;
-        dto.IsActive = service.IsActive;
-        return dto;
+        return MapService(service);
     }
 
     public async Task<ServiceCatalogDto> UpdateServiceAsync(int serviceId, ServiceCatalogDto dto)
@@ -343,17 +336,40 @@ public class RoomManagementService : IRoomManagementService
         if (string.IsNullOrWhiteSpace(dto.ServiceName))
             throw new InvalidOperationException("Tên dịch vụ không được để trống.");
 
+        if (dto.UnitPrice < 0)
+            throw new InvalidOperationException("Giá dịch vụ không hợp lệ.");
+
         service.ServiceName = dto.ServiceName.Trim();
-        service.UnitPrice = dto.UnitPrice >= 0 ? dto.UnitPrice : 0;
+        service.UnitPrice = dto.UnitPrice;
+        service.BillingCycle = NormalizeBillingCycle(dto.BillingCycle);
         service.Unit = dto.Unit;
         service.Description = dto.Description;
-        service.IsActive = dto.IsActive;
 
         await _repo.SaveChangesAsync();
 
-        dto.ServiceId = service.ServiceId;
-        return dto;
+        return MapService(service);
     }
+
+    private static string NormalizeBillingCycle(string? value)
+    {
+        var v = (value ?? string.Empty).Trim();
+        return v.ToLowerInvariant() switch
+        {
+            "yearly" or "year" or "năm" or "nam" => "Yearly",
+            "monthly" or "month" or "tháng" or "thang" or "" => "Monthly",
+            _ => throw new InvalidOperationException("Chu kỳ tính giá chỉ nhận 'Monthly' (theo tháng) hoặc 'Yearly' (theo năm).")
+        };
+    }
+
+    private static ServiceCatalogDto MapService(Service s) => new()
+    {
+        ServiceId = s.ServiceId,
+        ServiceName = s.ServiceName,
+        UnitPrice = s.UnitPrice,
+        BillingCycle = s.BillingCycle,
+        Unit = s.Unit,
+        Description = s.Description
+    };
 
     public async Task DeleteServiceAsync(int serviceId)
     {
@@ -383,8 +399,7 @@ public class RoomManagementService : IRoomManagementService
         {
             Name = name,
             Type = string.IsNullOrWhiteSpace(dto.Type) ? null : dto.Type.Trim(),
-            Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim(),
-            IsActive = true
+            Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim()
         };
 
         _repo.AddDeviceCatalog(entity);
@@ -408,7 +423,6 @@ public class RoomManagementService : IRoomManagementService
         entity.Name = name;
         entity.Type = string.IsNullOrWhiteSpace(dto.Type) ? null : dto.Type.Trim();
         entity.Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim();
-        entity.IsActive = dto.IsActive;
 
         await _repo.SaveChangesAsync();
 
@@ -429,7 +443,6 @@ public class RoomManagementService : IRoomManagementService
         DeviceCatalogId = d.DeviceCatalogId,
         Name = d.Name,
         Type = d.Type,
-        Icon = d.Icon,
-        IsActive = d.IsActive
+        Icon = d.Icon
     };
 }

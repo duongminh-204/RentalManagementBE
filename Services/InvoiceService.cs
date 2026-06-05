@@ -59,7 +59,7 @@ public class InvoiceService : IInvoiceService
         var electricFee = electricConsumed * room.ElectricPrice;
         var waterFee = waterConsumed * room.WaterPrice;
         var serviceFee = room.RoomServices
-            .Where(rs => rs.Service != null && rs.Service.IsActive)
+            .Where(rs => rs.Service != null)
             .Sum(rs => rs.Quantity * rs.Service.UnitPrice);
 
         var parkingFee = dto.ParkingFeeOverride ?? room.Vehicles
@@ -299,7 +299,7 @@ public class InvoiceService : IInvoiceService
             }
         };
 
-        foreach (var roomService in room.RoomServices.Where(rs => rs.Service != null && rs.Service.IsActive))
+        foreach (var roomService in room.RoomServices.Where(rs => rs.Service != null))
         {
             details.Add(new InvoiceDetail
             {

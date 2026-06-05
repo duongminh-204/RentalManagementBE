@@ -188,12 +188,12 @@ using (var scope = app.Services.CreateScope())
         if (!context.Services.Any())
         {
             context.Services.AddRange(
-                new Service { ServiceName = "Internet cáp quang", Type = "Internet", Icon = "Wifi", UnitPrice = 150000m, Unit = "tháng" },
-                new Service { ServiceName = "Dọn vệ sinh", Type = "Vệ sinh", Icon = "Sparkles", UnitPrice = 50000m, Unit = "tháng" },
-                new Service { ServiceName = "Giữ xe", Type = "Giữ xe", Icon = "Car", UnitPrice = 100000m, Unit = "xe/tháng" },
-                new Service { ServiceName = "Giặt ủi", Type = "Giặt ủi", Icon = "WashingMachine", UnitPrice = 20000m, Unit = "kg" },
-                new Service { ServiceName = "Nước uống", Type = "Nước uống", Icon = "Droplet", UnitPrice = 12000m, Unit = "bình" },
-                new Service { ServiceName = "Bảo vệ 24/7", Type = "An ninh", Icon = "ShieldCheck", UnitPrice = 0m, Unit = "tháng" }
+                new Service { ServiceName = "Internet cáp quang", Type = "Internet", Icon = "Wifi", UnitPrice = 150000m, BillingCycle = "Monthly", Unit = "tháng" },
+                new Service { ServiceName = "Dọn vệ sinh", Type = "Vệ sinh", Icon = "Sparkles", UnitPrice = 50000m, BillingCycle = "Monthly", Unit = "tháng" },
+                new Service { ServiceName = "Giữ xe", Type = "Giữ xe", Icon = "Car", UnitPrice = 100000m, BillingCycle = "Monthly", Unit = "xe/tháng" },
+                new Service { ServiceName = "Giặt ủi", Type = "Giặt ủi", Icon = "WashingMachine", UnitPrice = 20000m, BillingCycle = "Monthly", Unit = "kg" },
+                new Service { ServiceName = "Nước uống", Type = "Nước uống", Icon = "Droplet", UnitPrice = 12000m, BillingCycle = "Monthly", Unit = "bình" },
+                new Service { ServiceName = "Bảo vệ 24/7", Type = "An ninh", Icon = "ShieldCheck", UnitPrice = 0m, BillingCycle = "Monthly", Unit = "tháng" }
             );
 
             await context.SaveChangesAsync();

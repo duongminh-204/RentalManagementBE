@@ -8,6 +8,9 @@ public class Service
 
     public decimal UnitPrice { get; set; }
 
+    // Chu kỳ tính giá dịch vụ: "Monthly" (theo tháng) hoặc "Yearly" (theo năm).
+    public string BillingCycle { get; set; } = "Monthly";
+
     public string? Unit { get; set; }
 
     public string? Description { get; set; }
@@ -15,8 +18,6 @@ public class Service
     public string? Type { get; set; }
 
     public string? Icon { get; set; }
-
-    public bool IsActive { get; set; } = true;
 
     public ICollection<RoomService> RoomServices { get; set; } = new List<RoomService>();
 }
