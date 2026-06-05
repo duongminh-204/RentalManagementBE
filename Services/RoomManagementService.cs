@@ -74,6 +74,7 @@ public class RoomManagementService : IRoomManagementService
         var device = new Device
         {
             RoomId = roomId,
+            DeviceCatalogId = dto.DeviceCatalogId,
             DeviceName = dto.DeviceName.Trim(),
             Quantity = dto.Quantity > 0 ? dto.Quantity : 1,
             Status = dto.Status ?? "Working",
@@ -194,6 +195,7 @@ public class RoomManagementService : IRoomManagementService
     {
         DeviceId = d.DeviceId,
         RoomId = d.RoomId,
+        DeviceCatalogId = d.DeviceCatalogId,
         DeviceName = d.DeviceName,
         Quantity = d.Quantity,
         Status = d.Status,
