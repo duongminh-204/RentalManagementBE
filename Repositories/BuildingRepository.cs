@@ -16,7 +16,7 @@ public class BuildingRepository : IBuildingRepository
 
     public async Task<IEnumerable<Building>> GetAllAsync()
     {
-        return await _context.Buildings.OrderBy(b => b.BuildingName).ToListAsync();
+        return await _context.Buildings.AsNoTracking().OrderBy(b => b.BuildingName).ToListAsync();
     }
 
     public async Task<Building?> GetByIdAsync(int id)
