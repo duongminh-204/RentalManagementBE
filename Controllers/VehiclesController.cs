@@ -19,9 +19,10 @@ public class VehiclesController : ControllerBase
     public async Task<ActionResult<IEnumerable<VehicleDto>>> GetAll(
         [FromQuery] string? status,
         [FromQuery] string? type,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] int? buildingId)
     {
-        var data = await _vehicleService.GetAllAsync(status, type, search);
+        var data = await _vehicleService.GetAllAsync(status, type, search, buildingId);
         return Ok(data);
     }
 

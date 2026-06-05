@@ -19,6 +19,7 @@ public class TenantRepository : ITenantRepository
             .AsNoTracking()
             .Include(t => t.Contracts)
             .ThenInclude(c => c.Room)
+            .ThenInclude(r => r.Building)
             .OrderByDescending(t => t.UpdatedAt)
             .ToListAsync(cancellationToken);
 
@@ -27,6 +28,7 @@ public class TenantRepository : ITenantRepository
             .AsNoTracking()
             .Include(t => t.Contracts)
             .ThenInclude(c => c.Room)
+            .ThenInclude(r => r.Building)
             .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
 
     public async Task<Tenant?> GetTrackedWithContractsByIdAsync(int tenantId, CancellationToken cancellationToken = default) =>
@@ -66,6 +68,7 @@ public class TenantRepository : ITenantRepository
             .AsNoTracking()
             .Where(c => c.TenantId == tenantId)
             .Include(c => c.Room)
+            .ThenInclude(r => r.Building)
             .OrderByDescending(c => c.StartDate)
             .ToListAsync(cancellationToken);
 

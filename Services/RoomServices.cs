@@ -166,10 +166,12 @@ namespace Backend.Services
                     {
                         DeviceId = d.DeviceId,
                         RoomId = d.RoomId,
+                        DeviceCatalogId = d.DeviceCatalogId,
                         DeviceName = d.DeviceName,
                         Quantity = d.Quantity,
                         Status = d.Status,
-                        ImageUrl = d.ImageUrl
+                        ImageUrl = d.ImageUrl,
+                        Icon = d.DeviceCatalog?.Icon
                     })
                     .ToList(),
                 Tenants = GetRoomContracts(room)
@@ -193,7 +195,9 @@ namespace Backend.Services
                         ServiceId = rs.ServiceId,
                         ServiceName = rs.Service.ServiceName,
                         UnitPrice = rs.Service.UnitPrice,
-                        Unit = rs.Service.Unit
+                        BillingCycle = rs.Service.BillingCycle,
+                        Unit = rs.Service.Unit,
+                        Icon = rs.Service.Icon
                     })
                     .ToList()
             };

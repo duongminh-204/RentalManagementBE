@@ -43,6 +43,7 @@ public class RoomDeviceDto
     public int Quantity { get; set; }
     public string Status { get; set; } = "Working";
     public string? ImageUrl { get; set; }
+    public string? Icon { get; set; }
 }
 
 public class RoomTenantDto
@@ -91,6 +92,7 @@ public class ServiceCatalogDto
     // "Monthly" (theo tháng) hoặc "Yearly" (theo năm)
     public string BillingCycle { get; set; } = "Monthly";
     public string? Unit { get; set; }
+    public string? Icon { get; set; }
 }
 
 public class DeviceCatalogDto
@@ -107,7 +109,9 @@ public class RoomServiceItemDto
     public int ServiceId { get; set; }
     public string ServiceName { get; set; } = string.Empty;
     public decimal UnitPrice { get; set; }
+    public string BillingCycle { get; set; } = "Monthly";
     public string? Unit { get; set; }
+    public string? Icon { get; set; }
 }
 
 public class CreateRoomImageDto

@@ -18,7 +18,8 @@ public class VehicleRepository : IVehicleRepository
         _db.Vehicles
             .AsNoTracking()
             .Include(v => v.Tenant)
-            .Include(v => v.Room);
+            .Include(v => v.Room)
+            .ThenInclude(r => r.Building);
 
     public async Task<Vehicle?> GetTrackedByIdAsync(int vehicleId, CancellationToken cancellationToken = default) =>
         await _db.Vehicles.FirstOrDefaultAsync(v => v.VehicleId == vehicleId, cancellationToken);

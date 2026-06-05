@@ -92,6 +92,7 @@ public class RoomManagementService : IRoomManagementService
             ?? throw new KeyNotFoundException("Không tìm thấy thiết bị.");
 
         device.DeviceName = dto.DeviceName.Trim();
+        device.DeviceCatalogId = dto.DeviceCatalogId;
         device.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
         device.Status = dto.Status ?? "Working";
         device.ImageUrl = dto.ImageUrl;
@@ -348,7 +349,8 @@ public class RoomManagementService : IRoomManagementService
         ServiceName = s.ServiceName,
         UnitPrice = s.UnitPrice,
         BillingCycle = s.BillingCycle,
-        Unit = s.Unit
+        Unit = s.Unit,
+        Icon = s.Icon
     };
 
     public async Task DeleteServiceAsync(int serviceId)

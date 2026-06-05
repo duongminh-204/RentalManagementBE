@@ -31,6 +31,7 @@ namespace Backend.Repositories
                 .Include(r => r.Building)
                 .Include(r => r.RoomImages)
                 .Include(r => r.Devices)
+                    .ThenInclude(d => d.DeviceCatalog)
                 .Include(r => r.RoomServices)
                     .ThenInclude(rs => rs.Service)
                 .Include(r => r.Contracts)

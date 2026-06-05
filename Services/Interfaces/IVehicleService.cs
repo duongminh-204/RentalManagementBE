@@ -5,7 +5,7 @@ namespace Backend.Services.Interfaces;
 
 public interface IVehicleService
 {
-    Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null);
+    Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null, int? buildingId = null);
     Task<VehicleDto?> GetByIdAsync(int id);
     Task<IEnumerable<VehicleDto>> SearchByLicensePlateAsync(string licensePlate);
     Task<IEnumerable<VehicleDto>> GetByRoomIdAsync(int roomId);

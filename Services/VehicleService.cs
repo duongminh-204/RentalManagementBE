@@ -23,9 +23,12 @@ public class VehicleService : IVehicleService
         _env = env;
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null)
+    public async Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null, int? buildingId = null)
     {
         var query = _vehicles.QueryWithTenantAndRoom();
+
+        if (buildingId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.BuildingId == buildingId.Value);
 
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
         {
@@ -272,6 +275,8 @@ public class VehicleService : IVehicleService
         TenantName = v.Tenant?.FullName,
         RoomId = v.RoomId,
         RoomNumber = v.Room?.RoomName,
+        BuildingId = v.Room?.BuildingId,
+        BuildingName = v.Room?.Building?.BuildingName,
         CreatedAt = v.CreatedAt,
         UpdatedAt = v.UpdatedAt
     };

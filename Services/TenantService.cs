@@ -17,7 +17,7 @@ public class TenantService : ITenantService
         _env = env;
     }
 
-    public async Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null)
+    public async Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null, int? buildingId = null)
     {
         var list = await _tenants.ListWithContractsAndRoomsAsync();
 
@@ -39,6 +39,9 @@ public class TenantService : ITenantService
 
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
             dtos = dtos.Where(t => string.Equals(t.Status, status, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (buildingId.HasValue)
+            dtos = dtos.Where(t => t.BuildingId == buildingId.Value).ToList();
 
         return dtos; 
     }
@@ -336,6 +339,8 @@ public class TenantService : ITenantService
             ContractId = c.ContractId,
             RoomId = c.RoomId,
             RoomNumber = c.Room?.RoomName ?? string.Empty,
+            BuildingId = c.Room?.BuildingId,
+            BuildingName = c.Room?.Building?.BuildingName,
             StartDate = c.StartDate,
             EndDate = c.EndDate,
             Deposit = c.Deposit,
@@ -382,6 +387,8 @@ public class TenantService : ITenantService
             Status = MapStatus(tenant, active, latest),
             RoomId = active?.RoomId,
             RoomNumber = active?.Room?.RoomName,
+            BuildingId = active?.Room?.BuildingId,
+            BuildingName = active?.Room?.Building?.BuildingName,
             ContractId = active?.ContractId,
             MoveInDate = active?.StartDate,
             MoveOutDate = active?.Status == "Terminated" ? active.EndDate : null,
@@ -412,6 +419,8 @@ public class TenantService : ITenantService
             Status = list.Status,
             RoomId = list.RoomId,
             RoomNumber = list.RoomNumber,
+            BuildingId = list.BuildingId,
+            BuildingName = list.BuildingName,
             ContractId = list.ContractId,
             MoveInDate = list.MoveInDate,
             MoveOutDate = list.MoveOutDate,

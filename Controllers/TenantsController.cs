@@ -19,10 +19,11 @@ public class TenantsController : ControllerBase
     public async Task<ActionResult<IEnumerable<TenantListDto>>> GetAll(
         [FromQuery] string? status,
         [FromQuery] string? search,
-        [FromQuery] string? q)
+        [FromQuery] string? q,
+        [FromQuery] int? buildingId)
     {
         var term = search ?? q;
-        var data = await _tenantService.GetAllAsync(status, term);
+        var data = await _tenantService.GetAllAsync(status, term, buildingId);
         return Ok(data);
     }
 
