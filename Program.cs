@@ -51,10 +51,14 @@ builder.Services.AddCors(options =>
 // ====================== DB ======================
 builder.Services.AddDbContext<RentalManagementDb>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    var connectionName = builder.Environment.IsProduction()
+        ? "SomeeConnection"
+        : "LocalConnection";
+
+    var connectionString = builder.Configuration.GetConnectionString(connectionName);
 
     if (string.IsNullOrWhiteSpace(connectionString))
-        throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
+        throw new InvalidOperationException($"Connection string '{connectionName}' is missing.");
 
     options.UseSqlServer(connectionString);
 });
