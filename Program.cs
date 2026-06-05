@@ -24,18 +24,30 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddMemoryCache();
 
 // ====================== CORS ======================
+var defaultCorsOrigins = new[]
+{
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5175"
+};
+
+var configuredCorsOrigins = builder.Configuration["Cors:AllowedOrigins"]?
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
+
+var allowedCorsOrigins = defaultCorsOrigins
+    .Concat(configuredCorsOrigins)
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "http://localhost:5174",
-                "http://localhost:3000",
-                "http://localhost:5000",
-                "http://127.0.0.1:5173",
-                "http://127.0.0.1:5175"
-            )
+        policy.WithOrigins(allowedCorsOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
