@@ -1,6 +1,7 @@
 using Backend.Data;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Repositories;
@@ -14,10 +15,19 @@ public class RoomManagementRepository : IRoomManagementRepository
         _db = db;
     }
 
-    public async Task<List<Service>> GetActiveServicesOrderedAsync(CancellationToken cancellationToken = default) =>
-        await _db.Services
-            .OrderBy(s => s.ServiceName)
-            .ToListAsync(cancellationToken);
+    public async Task<List<Service>> GetActiveServicesOrderedAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _db.Services
+                .OrderBy(s => s.ServiceName)
+                .ToListAsync(cancellationToken);
+        }
+        catch (SqlException ex) when (IsMissingSchemaError(ex))
+        {
+            return [];
+        }
+    }
 
     public async Task<List<Tenant>> GetActiveTenantsOrderedAsync(CancellationToken cancellationToken = default) =>
         await _db.Tenants
@@ -39,10 +49,19 @@ public class RoomManagementRepository : IRoomManagementRepository
 
     public void RemoveService(Service service) => _db.Services.Remove(service);
 
-    public async Task<List<DeviceCatalog>> GetActiveDeviceCatalogsOrderedAsync(CancellationToken cancellationToken = default) =>
-        await _db.DeviceCatalogs
-            .OrderBy(d => d.Name)
-            .ToListAsync(cancellationToken);
+    public async Task<List<DeviceCatalog>> GetActiveDeviceCatalogsOrderedAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _db.DeviceCatalogs
+                .OrderBy(d => d.Name)
+                .ToListAsync(cancellationToken);
+        }
+        catch (SqlException ex) when (IsMissingSchemaError(ex))
+        {
+            return [];
+        }
+    }
 
     public void AddDeviceCatalog(DeviceCatalog catalog) => _db.DeviceCatalogs.Add(catalog);
 
@@ -99,4 +118,7 @@ public class RoomManagementRepository : IRoomManagementRepository
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _db.SaveChangesAsync(cancellationToken);
+
+    private static bool IsMissingSchemaError(SqlException ex) =>
+        ex.Errors.Cast<SqlError>().Any(error => error.Number is 207 or 208);
 }
