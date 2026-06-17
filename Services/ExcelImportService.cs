@@ -304,7 +304,8 @@ public class ExcelImportService : Interfaces.IExcelImportService
 
     public async Task<(byte[] Content, string FileName)> GetTemplateFileAsync(CancellationToken cancellationToken = default)
     {
-        return (GenerateFullWorkbookTemplate(), TemplateFileName);
+        var savedTemplate = await _fileStorage.ReadBytesAsync(TemplateDirectoryName, TemplateFileName, cancellationToken);
+        return (savedTemplate ?? GenerateFullWorkbookTemplate(), TemplateFileName);
     }
 
     private static byte[] GenerateFullWorkbookTemplate()
