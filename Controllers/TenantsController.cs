@@ -1,11 +1,14 @@
 using Backend.DTOs.Tenants;
 using Backend.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controllers;
 
 [Route("api/tenants")]
 [ApiController]
+[Authorize]
 public class TenantsController : ControllerBase
 {
     private readonly ITenantService _tenantService;
@@ -22,22 +25,28 @@ public class TenantsController : ControllerBase
         [FromQuery] string? q,
         [FromQuery] int? buildingId)
     {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
         var term = search ?? q;
-        var data = await _tenantService.GetAllAsync(status, term, buildingId);
+        var data = await _tenantService.GetAllAsync(status, term, buildingId, userId);
         return Ok(data);
     }
 
     [HttpGet("search")]
     public async Task<ActionResult<IEnumerable<TenantListDto>>> Search([FromQuery] string q)
     {
-        var data = await _tenantService.GetAllAsync(null, q);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _tenantService.GetAllAsync(null, q, null, userId);
         return Ok(data);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<TenantDetailDto>> GetById(int id)
     {
-        var tenant = await _tenantService.GetByIdAsync(id);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var tenant = await _tenantService.GetByIdAsync(id, userId);
         return tenant != null ? Ok(tenant) : NotFound();
     }
 
@@ -151,5 +160,11 @@ public class TenantsController : ControllerBase
         {
             return NotFound();
         }
+    }
+
+    private bool TryGetUserId(out int userId)
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out userId);
     }
 }

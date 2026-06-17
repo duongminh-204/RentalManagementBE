@@ -4,9 +4,9 @@ namespace Backend.Services.Interfaces;
 
 public interface IDashboardService
 {
-    Task<DashboardStatsDto> GetDashboardStatsAsync(int month, int year, int? buildingId = null);
-    Task<DashboardRoomStatsDto> GetRoomStatsAsync(int? buildingId = null);
-    Task<DashboardDebtInfoDto> GetDebtInfoAsync(int? buildingId = null);
-    Task<DashboardRevenueDto> GetRevenueAsync(int month, int year, int? buildingId = null);
-    Task<(byte[] Content, string FileName)> ExportDashboardExcelAsync(int month, int year, int? buildingId = null);
+    Task<DashboardStatsDto> GetDashboardStatsAsync(int month, int year, int? buildingId = null, int? ownerUserId = null);
+    Task<DashboardRoomStatsDto> GetRoomStatsAsync(int? buildingId = null, int? ownerUserId = null);
+    Task<DashboardDebtInfoDto> GetDebtInfoAsync(int? buildingId = null, int? ownerUserId = null);
+    Task<DashboardRevenueDto> GetRevenueAsync(int month, int year, int? buildingId = null, int? ownerUserId = null);
+    Task<(byte[] Content, string FileName)> ExportDashboardExcelAsync(int month, int year, int? buildingId = null, int? ownerUserId = null);
 }

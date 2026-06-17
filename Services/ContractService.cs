@@ -30,21 +30,22 @@ public class ContractService : IContractService
         string? search = null,
         string? statusFilter = null,
         string? sortBy = null,
-        bool sortDesc = true)
+        bool sortDesc = true,
+        int? ownerUserId = null)
     {
-        var list = await _contracts.ListAsync(roomId, tenantId, search, statusFilter, sortBy, sortDesc);
+        var list = await _contracts.ListAsync(roomId, tenantId, search, statusFilter, sortBy, sortDesc, ownerUserId);
         return list.Select(MapToDto);
     }
 
-    public async Task<ContractDto?> GetByIdAsync(int id)
+    public async Task<ContractDto?> GetByIdAsync(int id, int? ownerUserId = null)
     {
-        var contract = await _contracts.GetByIdAsync(id);
+        var contract = await _contracts.GetByIdAsync(id, ownerUserId);
         return contract != null ? MapToDto(contract) : null;
     }
 
-    public async Task<ContractDetailDto?> GetDetailAsync(int id)
+    public async Task<ContractDetailDto?> GetDetailAsync(int id, int? ownerUserId = null)
     {
-        var contract = await _contracts.GetByIdAsync(id);
+        var contract = await _contracts.GetByIdAsync(id, ownerUserId);
         if (contract == null) return null;
 
         var dto = MapToDetailDto(contract);
@@ -53,20 +54,20 @@ public class ContractService : IContractService
         return dto;
     }
 
-    public async Task<IEnumerable<ContractDto>> GetExpiringAsync(int days)
+    public async Task<IEnumerable<ContractDto>> GetExpiringAsync(int days, int? ownerUserId = null)
     {
-        var list = await _contracts.GetExpiringAsync(days);
+        var list = await _contracts.GetExpiringAsync(days, ownerUserId);
         return list.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<ContractReminderDto>> GetRemindersAsync()
+    public async Task<IEnumerable<ContractReminderDto>> GetRemindersAsync(int? ownerUserId = null)
     {
         var reminders = new List<ContractReminderDto>();
         var today = DateTime.UtcNow.Date;
 
         foreach (var days in new[] { 7, 3, 1 })
         {
-            var expiring = await _contracts.GetExpiringAsync(days);
+            var expiring = await _contracts.GetExpiringAsync(days, ownerUserId);
             foreach (var c in expiring)
             {
                 var remaining = (c.EndDate.Date - today).Days;
@@ -85,7 +86,7 @@ public class ContractService : IContractService
             }
         }
 
-        var expired = await _contracts.GetExpiredNotRenewedAsync();
+        var expired = await _contracts.GetExpiredNotRenewedAsync(ownerUserId);
         foreach (var c in expired)
         {
             reminders.Add(new ContractReminderDto

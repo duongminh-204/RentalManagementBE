@@ -1,11 +1,14 @@
 using Backend.DTOs.Buildings;
 using Backend.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class BuildingController : ControllerBase
 {
     private readonly IBuildingService _buildingService;
@@ -18,7 +21,9 @@ public class BuildingController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var buildings = await _buildingService.GetAllBuildingsAsync();
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var buildings = await _buildingService.GetAllBuildingsAsync(userId);
         return Ok(buildings);
     }
 
@@ -37,6 +42,9 @@ public class BuildingController : ControllerBase
     {
         try
         {
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+            dto.UserId = userId;
+
             var created = await _buildingService.CreateBuildingAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = created.BuildingId }, created);
         }
@@ -76,5 +84,11 @@ public class BuildingController : ControllerBase
         {
             return NotFound();
         }
+    }
+
+    private bool TryGetUserId(out int userId)
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out userId);
     }
 }

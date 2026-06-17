@@ -14,22 +14,33 @@ public class TenantRepository : ITenantRepository
         _db = db;
     }
 
-    public async Task<List<Tenant>> ListWithContractsAndRoomsAsync(CancellationToken cancellationToken = default) =>
-        await _db.Tenants
+    public async Task<List<Tenant>> ListWithContractsAndRoomsAsync(int? ownerUserId = null, CancellationToken cancellationToken = default)
+    {
+        var query = _db.Tenants
             .AsNoTracking()
             .Include(t => t.Contracts)
             .ThenInclude(c => c.Room)
             .ThenInclude(r => r.Building)
+            .AsQueryable();
+
+        if (ownerUserId.HasValue)
+            query = query.Where(t => t.Contracts.Any(c => c.Room != null && c.Room.Building.UserId == ownerUserId.Value));
+
+        return await query
             .OrderByDescending(t => t.UpdatedAt)
             .ToListAsync(cancellationToken);
+    }
 
-    public async Task<Tenant?> GetWithContractsAndRoomsByIdAsync(int tenantId, CancellationToken cancellationToken = default) =>
+    public async Task<Tenant?> GetWithContractsAndRoomsByIdAsync(int tenantId, int? ownerUserId = null, CancellationToken cancellationToken = default) =>
         await _db.Tenants
             .AsNoTracking()
             .Include(t => t.Contracts)
             .ThenInclude(c => c.Room)
             .ThenInclude(r => r.Building)
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(
+                t => t.TenantId == tenantId &&
+                     (!ownerUserId.HasValue || t.Contracts.Any(c => c.Room != null && c.Room.Building.UserId == ownerUserId.Value)),
+                cancellationToken);
 
     public async Task<Tenant?> GetTrackedWithContractsByIdAsync(int tenantId, CancellationToken cancellationToken = default) =>
         await _db.Tenants

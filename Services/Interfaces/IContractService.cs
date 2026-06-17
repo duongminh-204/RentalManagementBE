@@ -10,15 +10,16 @@ public interface IContractService
         string? search = null,
         string? statusFilter = null,
         string? sortBy = null,
-        bool sortDesc = true);
+        bool sortDesc = true,
+        int? ownerUserId = null);
 
-    Task<ContractDto?> GetByIdAsync(int id);
+    Task<ContractDto?> GetByIdAsync(int id, int? ownerUserId = null);
 
-    Task<ContractDetailDto?> GetDetailAsync(int id);
+    Task<ContractDetailDto?> GetDetailAsync(int id, int? ownerUserId = null);
 
-    Task<IEnumerable<ContractDto>> GetExpiringAsync(int days);
+    Task<IEnumerable<ContractDto>> GetExpiringAsync(int days, int? ownerUserId = null);
 
-    Task<IEnumerable<ContractReminderDto>> GetRemindersAsync();
+    Task<IEnumerable<ContractReminderDto>> GetRemindersAsync(int? ownerUserId = null);
 
     Task<ContractDto> CreateAsync(CreateContractDto dto);
 

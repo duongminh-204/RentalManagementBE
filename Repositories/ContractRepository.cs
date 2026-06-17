@@ -21,6 +21,7 @@ public class ContractRepository : IContractRepository
         string? statusFilter = null,
         string? sortBy = null,
         bool sortDesc = true,
+        int? ownerUserId = null,
         CancellationToken cancellationToken = default)
     {
         var query = _db.Contracts
@@ -34,6 +35,8 @@ public class ContractRepository : IContractRepository
 
         if (tenantId.HasValue)
             query = query.Where(c => c.TenantId == tenantId.Value);
+        if (ownerUserId.HasValue)
+            query = query.Where(c => c.Room != null && c.Room.Building.UserId == ownerUserId.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -78,44 +81,57 @@ public class ContractRepository : IContractRepository
         return await query.ToListAsync(cancellationToken);
     }
 
-    public async Task<List<Contract>> GetExpiringAsync(int days, CancellationToken cancellationToken = default)
+    public async Task<List<Contract>> GetExpiringAsync(int days, int? ownerUserId = null, CancellationToken cancellationToken = default)
     {
         var today = DateTime.UtcNow.Date;
         var target = today.AddDays(days);
 
-        return await _db.Contracts
+        var query = _db.Contracts
             .AsNoTracking()
             .Include(c => c.Room)
             .Include(c => c.Tenant)
             .Where(c =>
                 c.Status == "Active" &&
                 c.EndDate.Date >= today &&
-                c.EndDate.Date <= target)
+                c.EndDate.Date <= target);
+
+        if (ownerUserId.HasValue)
+            query = query.Where(c => c.Room != null && c.Room.Building.UserId == ownerUserId.Value);
+
+        return await query
             .OrderBy(c => c.EndDate)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<Contract>> GetExpiredNotRenewedAsync(CancellationToken cancellationToken = default)
+    public async Task<List<Contract>> GetExpiredNotRenewedAsync(int? ownerUserId = null, CancellationToken cancellationToken = default)
     {
         var today = DateTime.UtcNow.Date;
 
-        return await _db.Contracts
+        var query = _db.Contracts
             .AsNoTracking()
             .Include(c => c.Room)
             .Include(c => c.Tenant)
             .Where(c =>
                 c.Status == "Active" &&
-                c.EndDate.Date < today)
+                c.EndDate.Date < today);
+
+        if (ownerUserId.HasValue)
+            query = query.Where(c => c.Room != null && c.Room.Building.UserId == ownerUserId.Value);
+
+        return await query
             .OrderBy(c => c.EndDate)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<Contract?> GetByIdAsync(int contractId, CancellationToken cancellationToken = default) =>
+    public async Task<Contract?> GetByIdAsync(int contractId, int? ownerUserId = null, CancellationToken cancellationToken = default) =>
         await _db.Contracts
             .AsNoTracking()
             .Include(c => c.Room)
             .Include(c => c.Tenant)
-            .FirstOrDefaultAsync(c => c.ContractId == contractId, cancellationToken);
+            .FirstOrDefaultAsync(
+                c => c.ContractId == contractId &&
+                     (!ownerUserId.HasValue || (c.Room != null && c.Room.Building.UserId == ownerUserId.Value)),
+                cancellationToken);
 
     public async Task<Contract?> GetTrackedByIdAsync(int contractId, CancellationToken cancellationToken = default) =>
         await _db.Contracts

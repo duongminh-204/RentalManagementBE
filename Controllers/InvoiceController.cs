@@ -1,11 +1,14 @@
 using Backend.DTOs.Invoices;
 using Backend.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controllers;
 
 [Route("api/invoices")]
 [ApiController]
+[Authorize]
 public class InvoiceController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
@@ -18,21 +21,28 @@ public class InvoiceController : ControllerBase
     [HttpPost("utility-usage")]
     public async Task<ActionResult<InvoiceDto>> CreateInvoiceFromUtilityUsage([FromBody] CreateInvoiceFromUtilityUsageDto dto)
     {
-        var invoice = await _invoiceService.GenerateInvoiceFromUtilityUsageAsync(dto);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        dto.UserId = userId;
+        var invoice = await _invoiceService.GenerateInvoiceFromUtilityUsageAsync(dto, userId);
         return Ok(invoice);
     }
 
     [HttpGet("{invoiceId}")]
     public async Task<ActionResult<InvoiceDto>> GetInvoice(int invoiceId)
     {
-        var invoice = await _invoiceService.GetInvoiceByIdAsync(invoiceId);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var invoice = await _invoiceService.GetInvoiceByIdAsync(invoiceId, userId);
         return invoice == null ? NotFound() : Ok(invoice);
     }
 
     [HttpGet("room/{roomId}/month/{monthYear}")]
     public async Task<ActionResult<InvoiceDto>> GetInvoiceByRoomAndMonth(int roomId, string monthYear)
     {
-        var invoice = await _invoiceService.GetInvoiceByRoomAndMonthAsync(roomId, monthYear);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var invoice = await _invoiceService.GetInvoiceByRoomAndMonthAsync(roomId, monthYear, userId);
         return invoice == null ? NotFound() : Ok(invoice);
     }
 
@@ -45,14 +55,24 @@ public class InvoiceController : ControllerBase
         [FromQuery] string? status,
         [FromQuery] string? search)
     {
-        var invoices = await _invoiceService.SearchInvoicesAsync(roomId, tenantName, monthFrom, monthTo, status, search);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var invoices = await _invoiceService.SearchInvoicesAsync(roomId, tenantName, monthFrom, monthTo, status, search, userId);
         return Ok(invoices);
     }
 
     [HttpPost("monthly")]
     public async Task<ActionResult<IEnumerable<InvoiceDto>>> GenerateInvoicesForMonth([FromQuery] string monthYear, [FromQuery] int? buildingId)
     {
-        var invoices = await _invoiceService.GenerateInvoicesForMonthAsync(monthYear, buildingId);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var invoices = await _invoiceService.GenerateInvoicesForMonthAsync(monthYear, buildingId, userId);
         return Ok(invoices);
+    }
+
+    private bool TryGetUserId(out int userId)
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out userId);
     }
 }

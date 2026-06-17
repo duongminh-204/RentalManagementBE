@@ -11,13 +11,14 @@ public interface IContractRepository
         string? statusFilter = null,
         string? sortBy = null,
         bool sortDesc = true,
+        int? ownerUserId = null,
         CancellationToken cancellationToken = default);
 
-    Task<List<Contract>> GetExpiringAsync(int days, CancellationToken cancellationToken = default);
+    Task<List<Contract>> GetExpiringAsync(int days, int? ownerUserId = null, CancellationToken cancellationToken = default);
 
-    Task<List<Contract>> GetExpiredNotRenewedAsync(CancellationToken cancellationToken = default);
+    Task<List<Contract>> GetExpiredNotRenewedAsync(int? ownerUserId = null, CancellationToken cancellationToken = default);
 
-    Task<Contract?> GetByIdAsync(int contractId, CancellationToken cancellationToken = default);
+    Task<Contract?> GetByIdAsync(int contractId, int? ownerUserId = null, CancellationToken cancellationToken = default);
 
     Task<Contract?> GetTrackedByIdAsync(int contractId, CancellationToken cancellationToken = default);
 

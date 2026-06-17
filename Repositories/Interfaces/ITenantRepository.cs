@@ -4,8 +4,8 @@ namespace Backend.Repositories.Interfaces;
 
 public interface ITenantRepository
 {
-    Task<List<Tenant>> ListWithContractsAndRoomsAsync(CancellationToken cancellationToken = default);
-    Task<Tenant?> GetWithContractsAndRoomsByIdAsync(int tenantId, CancellationToken cancellationToken = default);
+    Task<List<Tenant>> ListWithContractsAndRoomsAsync(int? ownerUserId = null, CancellationToken cancellationToken = default);
+    Task<Tenant?> GetWithContractsAndRoomsByIdAsync(int tenantId, int? ownerUserId = null, CancellationToken cancellationToken = default);
     Task<Tenant?> GetTrackedWithContractsByIdAsync(int tenantId, CancellationToken cancellationToken = default);
     Task<Tenant?> GetTrackedByIdAsync(int tenantId, CancellationToken cancellationToken = default);
     Task<bool> IsEmailOrPhoneTakenAsync(string? email, string? phone, int? excludeTenantId, CancellationToken cancellationToken = default);

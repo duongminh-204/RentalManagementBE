@@ -1,11 +1,14 @@
 using Backend.DTOs.Contracts;
 using Backend.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controllers;
 
 [Route("api/contracts")]
 [ApiController]
+[Authorize]
 public class ContractsController : ControllerBase
 {
     private readonly IContractService _contracts;
@@ -26,32 +29,42 @@ public class ContractsController : ControllerBase
         [FromQuery] string? sortBy,
         [FromQuery] bool sortDesc = true)
     {
-        return Ok(await _contracts.GetAllAsync(roomId, tenantId, search, status, sortBy, sortDesc));
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        return Ok(await _contracts.GetAllAsync(roomId, tenantId, search, status, sortBy, sortDesc, userId));
     }
 
     [HttpGet("expiring")]
     public async Task<ActionResult<IEnumerable<ContractDto>>> GetExpiring([FromQuery] int days = 30)
     {
-        return Ok(await _contracts.GetExpiringAsync(days));
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        return Ok(await _contracts.GetExpiringAsync(days, userId));
     }
 
     [HttpGet("reminders")]
     public async Task<ActionResult<IEnumerable<ContractReminderDto>>> GetReminders()
     {
-        return Ok(await _contracts.GetRemindersAsync());
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        return Ok(await _contracts.GetRemindersAsync(userId));
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ContractDto>> GetById(int id)
     {
-        var contract = await _contracts.GetByIdAsync(id);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var contract = await _contracts.GetByIdAsync(id, userId);
         return contract != null ? Ok(contract) : NotFound();
     }
 
     [HttpGet("{id:int}/detail")]
     public async Task<ActionResult<ContractDetailDto>> GetDetail(int id)
     {
-        var contract = await _contracts.GetDetailAsync(id);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var contract = await _contracts.GetDetailAsync(id, userId);
         return contract != null ? Ok(contract) : NotFound();
     }
 
@@ -187,7 +200,9 @@ public class ContractsController : ControllerBase
     [HttpGet("{id:int}/download-file")]
     public async Task<IActionResult> DownloadFile(int id)
     {
-        var contract = await _contracts.GetByIdAsync(id);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var contract = await _contracts.GetByIdAsync(id, userId);
         if (contract?.FileUrl == null)
             return NotFound();
 
@@ -199,5 +214,11 @@ public class ContractsController : ControllerBase
             return NotFound();
 
         return File(download.Stream, download.ContentType, download.FileName);
+    }
+
+    private bool TryGetUserId(out int userId)
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out userId);
     }
 }

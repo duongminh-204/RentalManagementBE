@@ -23,12 +23,14 @@ public class VehicleService : IVehicleService
         _fileStorage = fileStorage;
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null, int? buildingId = null)
+    public async Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null, int? buildingId = null, int? ownerUserId = null)
     {
         var query = _vehicles.QueryWithTenantAndRoom();
 
         if (buildingId.HasValue)
             query = query.Where(v => v.Room != null && v.Room.BuildingId == buildingId.Value);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
 
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
         {
@@ -58,47 +60,71 @@ public class VehicleService : IVehicleService
         return list.Select(MapToDto);
     }
 
-    public async Task<VehicleDto?> GetByIdAsync(int id)
+    public async Task<VehicleDto?> GetByIdAsync(int id, int? ownerUserId = null)
     {
-        var vehicle = await _vehicles.QueryWithTenantAndRoom().FirstOrDefaultAsync(v => v.VehicleId == id);
+        var vehicle = await _vehicles.QueryWithTenantAndRoom()
+            .FirstOrDefaultAsync(v =>
+                v.VehicleId == id &&
+                (!ownerUserId.HasValue || (v.Room != null && v.Room.Building.UserId == ownerUserId.Value)));
         return vehicle == null ? null : MapToDto(vehicle);
     }
 
-    public async Task<IEnumerable<VehicleDto>> SearchByLicensePlateAsync(string licensePlate)
+    public async Task<IEnumerable<VehicleDto>> SearchByLicensePlateAsync(string licensePlate, int? ownerUserId = null)
     {
         if (string.IsNullOrWhiteSpace(licensePlate))
             return Array.Empty<VehicleDto>();
 
         var q = licensePlate.Trim().ToLowerInvariant();
-        var list = await _vehicles.QueryWithTenantAndRoom()
-            .Where(v => v.LicensePlateNumber.ToLower().Contains(q))
+        var query = _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.LicensePlateNumber.ToLower().Contains(q));
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query
             .ToListAsync();
         return list.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetByRoomIdAsync(int roomId)
+    public async Task<IEnumerable<VehicleDto>> GetByRoomIdAsync(int roomId, int? ownerUserId = null)
     {
-        var list = await _vehicles.QueryWithTenantAndRoom().Where(v => v.RoomId == roomId).ToListAsync();
+        var query = _vehicles.QueryWithTenantAndRoom().Where(v => v.RoomId == roomId);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query.ToListAsync();
         return list.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetByTenantIdAsync(int tenantId)
+    public async Task<IEnumerable<VehicleDto>> GetByTenantIdAsync(int tenantId, int? ownerUserId = null)
     {
-        var list = await _vehicles.QueryWithTenantAndRoom().Where(v => v.TenantId == tenantId).ToListAsync();
+        var query = _vehicles.QueryWithTenantAndRoom().Where(v => v.TenantId == tenantId);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query.ToListAsync();
         return list.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetUnknownAsync()
+    public async Task<IEnumerable<VehicleDto>> GetUnknownAsync(int? ownerUserId = null)
     {
-        var list = await _vehicles.QueryWithTenantAndRoom()
-            .Where(v => v.Status == "unknown" || v.TenantId == null)
+        var query = _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.Status == "unknown" || v.TenantId == null);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query
             .ToListAsync();
         return list.Select(MapToDto);
     }
 
-    public async Task<ParkingFeeSummaryDto> GetParkingFeeSummaryAsync()
+    public async Task<ParkingFeeSummaryDto> GetParkingFeeSummaryAsync(int? ownerUserId = null)
     {
-        var active = await _vehicles.ListActiveForParkingSummaryAsync();
+        var query = _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.Status == "active");
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var active = await query.ToListAsync();
         return new ParkingFeeSummaryDto
         {
             TotalMonthlyFee = active.Sum(v => v.ParkingFee),
@@ -106,14 +132,18 @@ public class VehicleService : IVehicleService
         };
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetByTypeAsync(string type)
+    public async Task<IEnumerable<VehicleDto>> GetByTypeAsync(string type, int? ownerUserId = null)
     {
         if (string.IsNullOrWhiteSpace(type))
             return Array.Empty<VehicleDto>();
 
         var t = type.Trim().ToLowerInvariant();
-        var list = await _vehicles.QueryWithTenantAndRoom()
-            .Where(v => v.VehicleType != null && v.VehicleType.ToLower() == t)
+        var query = _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.VehicleType != null && v.VehicleType.ToLower() == t);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query
             .ToListAsync();
         return list.Select(MapToDto);
     }

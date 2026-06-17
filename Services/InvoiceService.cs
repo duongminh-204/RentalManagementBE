@@ -15,7 +15,7 @@ public class InvoiceService : IInvoiceService
         _invoiceRepository = invoiceRepository;
     }
 
-    public async Task<InvoiceDto> GenerateInvoiceFromUtilityUsageAsync(CreateInvoiceFromUtilityUsageDto dto)
+    public async Task<InvoiceDto> GenerateInvoiceFromUtilityUsageAsync(CreateInvoiceFromUtilityUsageDto dto, int? ownerUserId = null)
     {
         var monthYear = NormalizeMonthYear(dto.MonthYear);
         ValidateUsage(dto);
@@ -23,6 +23,9 @@ public class InvoiceService : IInvoiceService
         var room = await _invoiceRepository.GetRoomWithDetailsAsync(dto.RoomId);
         if (room == null)
             throw new KeyNotFoundException($"Không tìm thấy phòng với ID = {dto.RoomId}.");
+
+        if (ownerUserId.HasValue && room.Building?.UserId != ownerUserId.Value)
+            throw new KeyNotFoundException($"Khong tim thay phong voi ID = {dto.RoomId}.");
 
         var user = await _invoiceRepository.GetUserByIdAsync(dto.UserId);
         if (user == null)
@@ -69,7 +72,7 @@ public class InvoiceService : IInvoiceService
         var totalAmount = roomFee + electricFee + waterFee + serviceFee + parkingFee + dto.OtherFee - dto.DiscountAmount;
         totalAmount = Math.Max(totalAmount, 0m);
 
-        var invoice = await _invoiceRepository.GetInvoiceByRoomAndMonthAsync(dto.RoomId, monthYear);
+        var invoice = await _invoiceRepository.GetInvoiceByRoomAndMonthAsync(dto.RoomId, monthYear, ownerUserId);
         if (invoice == null)
         {
             invoice = new Invoice
@@ -152,9 +155,9 @@ public class InvoiceService : IInvoiceService
         return MapToDto(invoice, electricConsumed, waterConsumed);
     }
 
-    public async Task<InvoiceDto?> GetInvoiceByIdAsync(int invoiceId)
+    public async Task<InvoiceDto?> GetInvoiceByIdAsync(int invoiceId, int? ownerUserId = null)
     {
-        var invoice = await _invoiceRepository.GetInvoiceByIdAsync(invoiceId);
+        var invoice = await _invoiceRepository.GetInvoiceByIdAsync(invoiceId, ownerUserId);
         if (invoice == null)
             return null;
 
@@ -165,10 +168,10 @@ public class InvoiceService : IInvoiceService
         return MapToDto(invoice, electricConsumed, waterConsumed);
     }
 
-    public async Task<InvoiceDto?> GetInvoiceByRoomAndMonthAsync(int roomId, string monthYear)
+    public async Task<InvoiceDto?> GetInvoiceByRoomAndMonthAsync(int roomId, string monthYear, int? ownerUserId = null)
     {
         var normalized = NormalizeMonthYear(monthYear);
-        var invoice = await _invoiceRepository.GetInvoiceByRoomAndMonthAsync(roomId, normalized);
+        var invoice = await _invoiceRepository.GetInvoiceByRoomAndMonthAsync(roomId, normalized, ownerUserId);
         if (invoice == null)
             return null;
 
@@ -179,10 +182,10 @@ public class InvoiceService : IInvoiceService
         return MapToDto(invoice, electricConsumed, waterConsumed);
     }
 
-    public async Task<IEnumerable<InvoiceDto>> GenerateInvoicesForMonthAsync(string monthYear, int? buildingId = null)
+    public async Task<IEnumerable<InvoiceDto>> GenerateInvoicesForMonthAsync(string monthYear, int? buildingId = null, int? ownerUserId = null)
     {
         var normalized = NormalizeMonthYear(monthYear);
-        var rooms = await _invoiceRepository.GetRoomsWithDetailsAsync(buildingId);
+        var rooms = await _invoiceRepository.GetRoomsWithDetailsAsync(buildingId, ownerUserId);
         var result = new List<InvoiceDto>();
 
         foreach (var room in rooms)
@@ -204,15 +207,15 @@ public class InvoiceService : IInvoiceService
                 DiscountAmount = 0m
             };
 
-            result.Add(await GenerateInvoiceFromUtilityUsageAsync(request));
+            result.Add(await GenerateInvoiceFromUtilityUsageAsync(request, ownerUserId));
         }
 
         return result;
     }
 
-    public async Task<IEnumerable<InvoiceDto>> SearchInvoicesAsync(int? roomId = null, string? tenantName = null, string? monthYearFrom = null, string? monthYearTo = null, string? status = null, string? search = null)
+    public async Task<IEnumerable<InvoiceDto>> SearchInvoicesAsync(int? roomId = null, string? tenantName = null, string? monthYearFrom = null, string? monthYearTo = null, string? status = null, string? search = null, int? ownerUserId = null)
     {
-        var invoices = await _invoiceRepository.SearchInvoicesAsync(roomId, tenantName, monthYearFrom, monthYearTo, status, search);
+        var invoices = await _invoiceRepository.SearchInvoicesAsync(roomId, tenantName, monthYearFrom, monthYearTo, status, search, ownerUserId);
         var results = new List<InvoiceDto>();
 
         foreach (var invoice in invoices)

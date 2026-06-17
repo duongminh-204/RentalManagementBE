@@ -17,9 +17,9 @@ public class TenantService : ITenantService
         _fileStorage = fileStorage;
     }
 
-    public async Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null, int? buildingId = null)
+    public async Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null, int? buildingId = null, int? ownerUserId = null)
     {
-        var list = await _tenants.ListWithContractsAndRoomsAsync();
+        var list = await _tenants.ListWithContractsAndRoomsAsync(ownerUserId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -46,9 +46,9 @@ public class TenantService : ITenantService
         return dtos; 
     }
 
-    public async Task<TenantDetailDto?> GetByIdAsync(int id)
+    public async Task<TenantDetailDto?> GetByIdAsync(int id, int? ownerUserId = null)
     {
-        var tenant = await _tenants.GetWithContractsAndRoomsByIdAsync(id);
+        var tenant = await _tenants.GetWithContractsAndRoomsByIdAsync(id, ownerUserId);
         if (tenant == null) return null;
 
         var dto = MapToDetailDto(tenant);

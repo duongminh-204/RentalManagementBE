@@ -19,11 +19,11 @@ public class DashboardService : IDashboardService
         _excelImportRepository = excelImportRepository;
     }
 
-    public async Task<DashboardStatsDto> GetDashboardStatsAsync(int month, int year, int? buildingId = null)
+    public async Task<DashboardStatsDto> GetDashboardStatsAsync(int month, int year, int? buildingId = null, int? ownerUserId = null)
     {
-        var roomStats = await GetRoomStatsAsync(buildingId);
-        var debtInfo = await GetDebtInfoAsync(buildingId);
-        var revenue = await GetRevenueAsync(month, year, buildingId);
+        var roomStats = await GetRoomStatsAsync(buildingId, ownerUserId);
+        var debtInfo = await GetDebtInfoAsync(buildingId, ownerUserId);
+        var revenue = await GetRevenueAsync(month, year, buildingId, ownerUserId);
 
         return new DashboardStatsDto
         {
@@ -36,9 +36,9 @@ public class DashboardService : IDashboardService
         };
     }
 
-    public async Task<DashboardRoomStatsDto> GetRoomStatsAsync(int? buildingId = null)
+    public async Task<DashboardRoomStatsDto> GetRoomStatsAsync(int? buildingId = null, int? ownerUserId = null)
     {
-        var rooms = await _dashboardRepository.GetRoomStatusesAsync(buildingId);
+        var rooms = await _dashboardRepository.GetRoomStatusesAsync(buildingId, ownerUserId);
 
         return new DashboardRoomStatsDto
         {
@@ -49,9 +49,9 @@ public class DashboardService : IDashboardService
         };
     }
 
-    public async Task<DashboardDebtInfoDto> GetDebtInfoAsync(int? buildingId = null)
+    public async Task<DashboardDebtInfoDto> GetDebtInfoAsync(int? buildingId = null, int? ownerUserId = null)
     {
-        var debtRows = await _dashboardRepository.GetDebtRecordsAsync(buildingId);
+        var debtRows = await _dashboardRepository.GetDebtRecordsAsync(buildingId, ownerUserId);
 
         var groupedDebts = debtRows
             .Where(row => row.OutstandingAmount > 0)
@@ -96,11 +96,11 @@ public class DashboardService : IDashboardService
         };
     }
 
-    public async Task<DashboardRevenueDto> GetRevenueAsync(int month, int year, int? buildingId = null)
+    public async Task<DashboardRevenueDto> GetRevenueAsync(int month, int year, int? buildingId = null, int? ownerUserId = null)
     {
         var monthYear = FormatMonthYear(month, year);
-        var monthlyRevenue = await _dashboardRepository.GetMonthlyRevenueAsync(monthYear, buildingId);
-        var roomValues = await _dashboardRepository.GetRevenueTargetsAsync(buildingId);
+        var monthlyRevenue = await _dashboardRepository.GetMonthlyRevenueAsync(monthYear, buildingId, ownerUserId);
+        var roomValues = await _dashboardRepository.GetRevenueTargetsAsync(buildingId, ownerUserId);
 
         var targetRevenue = roomValues
             .Where(room => NormalizeRoomStatus(room.Status) != "maintenance")
@@ -113,11 +113,11 @@ public class DashboardService : IDashboardService
         };
     }
 
-    public async Task<(byte[] Content, string FileName)> ExportDashboardExcelAsync(int month, int year, int? buildingId = null)
+    public async Task<(byte[] Content, string FileName)> ExportDashboardExcelAsync(int month, int year, int? buildingId = null, int? ownerUserId = null)
     {
-        var roomStats = await GetRoomStatsAsync(buildingId);
-        var debtInfo = await GetDebtInfoAsync(buildingId);
-        var revenue = await GetRevenueAsync(month, year, buildingId);
+        var roomStats = await GetRoomStatsAsync(buildingId, ownerUserId);
+        var debtInfo = await GetDebtInfoAsync(buildingId, ownerUserId);
+        var revenue = await GetRevenueAsync(month, year, buildingId, ownerUserId);
         var buildings = await TryLoadExportRowsAsync(() => _excelImportRepository.ListBuildingsWithOwnerAsync());
         var rooms = await TryLoadExportRowsAsync(() => _excelImportRepository.ListRoomsWithDetailsAsync(buildingId));
         var tenants = await TryLoadExportRowsAsync(() => _excelImportRepository.ListTenantsWithVehiclesAndContractsAsync());

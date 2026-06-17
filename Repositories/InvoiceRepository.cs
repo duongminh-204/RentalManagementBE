@@ -17,6 +17,7 @@ public class InvoiceRepository : IInvoiceRepository
     public async Task<Room?> GetRoomWithDetailsAsync(int roomId)
     {
         return await _context.Rooms
+            .Include(r => r.Building)
             .Include(r => r.RoomServices)
                 .ThenInclude(rs => rs.Service)
             .Include(r => r.Vehicles)
@@ -39,27 +40,36 @@ public class InvoiceRepository : IInvoiceRepository
         return await _context.Users.OrderBy(u => u.UserId).FirstOrDefaultAsync();
     }
 
-    public async Task<Invoice?> GetInvoiceByRoomAndMonthAsync(int roomId, string monthYear)
+    public async Task<Invoice?> GetInvoiceByRoomAndMonthAsync(int roomId, string monthYear, int? ownerUserId = null)
     {
-        return await _context.Invoices
+        var query = _context.Invoices
             .Include(i => i.InvoiceDetails)
             .Include(i => i.Room)
                 .ThenInclude(r => r.Contracts)
                     .ThenInclude(c => c.Tenant)
-            .FirstOrDefaultAsync(i => i.RoomId == roomId && i.MonthYear == monthYear);
+            .AsQueryable();
+
+        return await query.FirstOrDefaultAsync(i =>
+            i.RoomId == roomId &&
+            i.MonthYear == monthYear &&
+            (!ownerUserId.HasValue || i.Room.Building.UserId == ownerUserId.Value));
     }
 
-    public async Task<Invoice?> GetInvoiceByIdAsync(int invoiceId)
+    public async Task<Invoice?> GetInvoiceByIdAsync(int invoiceId, int? ownerUserId = null)
     {
-        return await _context.Invoices
+        var query = _context.Invoices
             .Include(i => i.InvoiceDetails)
             .Include(i => i.Room)
                 .ThenInclude(r => r.Contracts)
                     .ThenInclude(c => c.Tenant)
-            .FirstOrDefaultAsync(i => i.InvoiceId == invoiceId);
+            .AsQueryable();
+
+        return await query.FirstOrDefaultAsync(i =>
+            i.InvoiceId == invoiceId &&
+            (!ownerUserId.HasValue || i.Room.Building.UserId == ownerUserId.Value));
     }
 
-    public async Task<IEnumerable<Invoice>> SearchInvoicesAsync(int? roomId = null, string? tenantName = null, string? monthYearFrom = null, string? monthYearTo = null, string? status = null, string? search = null)
+    public async Task<IEnumerable<Invoice>> SearchInvoicesAsync(int? roomId = null, string? tenantName = null, string? monthYearFrom = null, string? monthYearTo = null, string? status = null, string? search = null, int? ownerUserId = null)
     {
         var query = _context.Invoices
             .Include(i => i.InvoiceDetails)
@@ -70,6 +80,8 @@ public class InvoiceRepository : IInvoiceRepository
 
         if (roomId.HasValue)
             query = query.Where(i => i.RoomId == roomId.Value);
+        if (ownerUserId.HasValue)
+            query = query.Where(i => i.Room.Building.UserId == ownerUserId.Value);
 
         if (!string.IsNullOrWhiteSpace(tenantName))
         {
@@ -108,7 +120,7 @@ public class InvoiceRepository : IInvoiceRepository
         return await query.OrderByDescending(i => i.CreatedAt).ToListAsync();
     }
 
-    public async Task<IEnumerable<Room>> GetRoomsWithDetailsAsync(int? buildingId = null)
+    public async Task<IEnumerable<Room>> GetRoomsWithDetailsAsync(int? buildingId = null, int? ownerUserId = null)
     {
         var query = _context.Rooms
             .Include(r => r.RoomServices)
@@ -118,6 +130,8 @@ public class InvoiceRepository : IInvoiceRepository
 
         if (buildingId.HasValue)
             query = query.Where(r => r.BuildingId == buildingId.Value);
+        if (ownerUserId.HasValue)
+            query = query.Where(r => r.Building.UserId == ownerUserId.Value);
 
         return await query.ToListAsync();
     }
