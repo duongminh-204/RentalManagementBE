@@ -82,6 +82,9 @@ public class ExcelImportResultDto
     public int RoomsImported { get; set; }
     public int TenantsImported { get; set; }
     public int ContractsImported { get; set; }
+    public int VehiclesImported { get; set; }
+    public int DevicesImported { get; set; }
+    public int ServicesImported { get; set; }
     public int InvoicesImported { get; set; }
     public int PaymentsImported { get; set; }
     public List<string> Warnings { get; set; } = new();
