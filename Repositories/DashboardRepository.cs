@@ -116,7 +116,7 @@ public class DashboardRepository : IDashboardRepository
             .ToListAsync();
     }
 
-    public async Task<decimal> GetMonthlyRevenueAsync(string monthYear, int? buildingId = null)
+    public async Task<decimal> GetMonthlyRevenueAsync(string monthYear, int? buildingId = null, int? ownerUserId = null)
     {
         var invoiceQuery = _context.Invoices
             .AsNoTracking()
@@ -155,6 +155,19 @@ public class DashboardRepository : IDashboardRepository
                 Status = room.Status,
             })
             .ToListAsync();
+    }
+
+    public async Task<Invoice?> GetInvoiceForPaymentAsync(int invoiceId)
+    {
+        return await _context.Invoices
+            .Include(invoice => invoice.Payments)
+            .FirstOrDefaultAsync(invoice => invoice.InvoiceId == invoiceId);
+    }
+
+    public Task AddPaymentAsync(Payment payment)
+    {
+        _context.Payments.Add(payment);
+        return Task.CompletedTask;
     }
 
     public Task SaveChangesAsync() => _context.SaveChangesAsync();
