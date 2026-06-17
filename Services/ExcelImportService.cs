@@ -975,22 +975,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             return owner;
         }
 
-        owner = new User
-        {
-            RoleId = ownerRole.RoleId,
-            FullName = "Chủ trọ nhập Excel",
-            Email = "excel-owner@local.test",
-            PhoneNumber = "0999999999",
-            Address = "Dữ liệu khởi tạo từ Excel",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-        };
-        owner.PasswordHash = _passwordHasher.HashPassword(owner, "Owner@123");
-
-        await _excelImportRepository.AddUserAsync(owner, cancellationToken);
-        await _excelImportRepository.SaveChangesAsync(cancellationToken);
-        return owner;
+        throw new InvalidOperationException("Vui lòng tạo tài khoản chủ trọ trước khi nhập Excel.");
     }
 
     private async Task<Building> EnsureDefaultBuildingAsync(User owner, CancellationToken cancellationToken)
@@ -1001,18 +986,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             return building;
         }
 
-        building = new Building
-        {
-            UserId = owner.UserId,
-            BuildingName = "Khu trọ nhập Excel",
-            Address = "Chưa cập nhật địa chỉ",
-            Description = "Tự tạo khi nhập dữ liệu Excel",
-            CreatedAt = DateTime.UtcNow,
-        };
-
-        await _excelImportRepository.AddBuildingAsync(building, cancellationToken);
-        await _excelImportRepository.SaveChangesAsync(cancellationToken);
-        return building;
+        throw new InvalidOperationException("Vui lòng tạo tòa nhà trước khi nhập Excel.");
     }
 
     private static Tenant? FindTenant(IEnumerable<Tenant> tenants, string fullName)

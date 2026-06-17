@@ -182,6 +182,8 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine("Seed error: " + ex.Message);
     }
 
+    if (builder.Configuration.GetValue<bool>("SeedCatalogs"))
+    {
     try
     {
         // SEED DANH MỤC THIẾT BỊ (DeviceCatalog)
@@ -227,6 +229,7 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine("Seed catalog error: " + ex.Message);
+    }
     }
 }
 
