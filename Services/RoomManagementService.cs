@@ -9,26 +9,18 @@ namespace Backend.Services;
 public class RoomManagementService : IRoomManagementService
 {
     private readonly IRoomManagementRepository _repo;
-    private readonly IWebHostEnvironment _env;
+    private readonly IFileStorageService _fileStorage;
 
-    public RoomManagementService(IRoomManagementRepository repo, IWebHostEnvironment env)
+    public RoomManagementService(IRoomManagementRepository repo, IFileStorageService fileStorage)
     {
         _repo = repo;
-        _env = env;
+        _fileStorage = fileStorage;
     }
 
     public async Task<IEnumerable<ServiceCatalogDto>> GetServiceCatalogAsync()
     {
         var services = await _repo.GetActiveServicesOrderedAsync();
-        return services.Select(s => new ServiceCatalogDto
-        {
-            ServiceId = s.ServiceId,
-            ServiceName = s.ServiceName,
-            UnitPrice = s.UnitPrice,
-            Unit = s.Unit,
-            Description = s.Description,
-            IsActive = s.IsActive
-        });
+        return services.Select(MapService);
     }
 
     public async Task<IEnumerable<TenantPickerDto>> GetTenantCandidatesAsync()
@@ -82,10 +74,11 @@ public class RoomManagementService : IRoomManagementService
         var device = new Device
         {
             RoomId = roomId,
+            DeviceCatalogId = dto.DeviceCatalogId,
             DeviceName = dto.DeviceName.Trim(),
             Quantity = dto.Quantity > 0 ? dto.Quantity : 1,
             Status = dto.Status ?? "Working",
-            Note = dto.Note
+            ImageUrl = dto.ImageUrl
         };
         _repo.AddDevice(device);
         await _repo.SaveChangesAsync();
@@ -99,9 +92,10 @@ public class RoomManagementService : IRoomManagementService
             ?? throw new KeyNotFoundException("Không tìm thấy thiết bị.");
 
         device.DeviceName = dto.DeviceName.Trim();
+        device.DeviceCatalogId = dto.DeviceCatalogId;
         device.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
         device.Status = dto.Status ?? "Working";
-        device.Note = dto.Note;
+        device.ImageUrl = dto.ImageUrl;
         await _repo.SaveChangesAsync();
         return MapDevice(device);
     }
@@ -122,31 +116,16 @@ public class RoomManagementService : IRoomManagementService
 
         var existing = await _repo.FindRoomServiceAsync(roomId, dto.ServiceId);
         if (existing != null)
-        {
-            existing.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
-            await _repo.SaveChangesAsync();
             return MapRoomService(existing, service);
-        }
 
         var roomService = new RoomService
         {
             RoomId = roomId,
-            ServiceId = dto.ServiceId,
-            Quantity = dto.Quantity > 0 ? dto.Quantity : 1
+            ServiceId = dto.ServiceId
         };
         _repo.AddRoomService(roomService);
         await _repo.SaveChangesAsync();
         return MapRoomService(roomService, service);
-    }
-
-    public async Task<RoomServiceItemDto> UpdateRoomServiceAsync(int roomId, int roomServiceId, UpdateRoomServiceDto dto)
-    {
-        var roomService = await _repo.GetRoomServiceWithServiceAsync(roomId, roomServiceId)
-            ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ phòng.");
-
-        roomService.Quantity = dto.Quantity > 0 ? dto.Quantity : 1;
-        await _repo.SaveChangesAsync();
-        return MapRoomService(roomService, roomService.Service);
     }
 
     public async Task DeleteRoomServiceAsync(int roomId, int roomServiceId)
@@ -217,10 +196,11 @@ public class RoomManagementService : IRoomManagementService
     {
         DeviceId = d.DeviceId,
         RoomId = d.RoomId,
+        DeviceCatalogId = d.DeviceCatalogId,
         DeviceName = d.DeviceName,
         Quantity = d.Quantity,
         Status = d.Status,
-        Note = d.Note
+        ImageUrl = d.ImageUrl
     };
 
     private static RoomServiceItemDto MapRoomService(RoomService rs, Service s) => new()
@@ -230,8 +210,7 @@ public class RoomManagementService : IRoomManagementService
         ServiceId = rs.ServiceId,
         ServiceName = s.ServiceName,
         UnitPrice = s.UnitPrice,
-        Unit = s.Unit,
-        Quantity = rs.Quantity
+        Unit = s.Unit
     };
 
     public async Task<RoomImageDto> UploadRoomImageAsync(int roomId, IFormFile file)
@@ -248,21 +227,13 @@ public class RoomManagementService : IRoomManagementService
         if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
             throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
 
-        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "rooms");
-        Directory.CreateDirectory(uploadsDir);
-
         var fileName = $"{roomId}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
+        var imageUrl = await _fileStorage.UploadFormFileAsync(file, "rooms", fileName);
 
         var image = new RoomImage
         {
             RoomId = roomId,
-            ImageUrl = $"/uploads/rooms/{fileName}"
+            ImageUrl = imageUrl
         };
 
         _repo.AddRoomImage(image);
@@ -275,4 +246,164 @@ public class RoomManagementService : IRoomManagementService
             ImageUrl = image.ImageUrl
         };
     }
+
+    public async Task<RoomDeviceDto> UploadDeviceImageAsync(int roomId, int deviceId, IFormFile file)
+    {
+        await EnsureRoomExists(roomId);
+
+        var device = await _repo.GetDeviceAsync(roomId, deviceId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị.");
+
+        if (file == null || file.Length == 0)
+            throw new InvalidOperationException("File không hợp lệ.");
+
+        if (file.Length > 5 * 1024 * 1024)
+            throw new InvalidOperationException("Ảnh tối đa 5MB.");
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
+            throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
+
+        var fileName = $"{roomId}_{deviceId}_{Guid.NewGuid():N}{ext}";
+        device.ImageUrl = await _fileStorage.UploadFormFileAsync(file, "devices", fileName);
+        await _repo.SaveChangesAsync();
+
+        return MapDevice(device);
+    }
+
+    public async Task<ServiceCatalogDto> CreateServiceAsync(ServiceCatalogDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.ServiceName))
+            throw new InvalidOperationException("Tên dịch vụ không được để trống.");
+
+        if (dto.UnitPrice < 0)
+            throw new InvalidOperationException("Giá dịch vụ không hợp lệ.");
+
+        var service = new Service
+        {
+            ServiceName = dto.ServiceName.Trim(),
+            UnitPrice = dto.UnitPrice,
+            BillingCycle = NormalizeBillingCycle(dto.BillingCycle),
+            Unit = dto.Unit
+        };
+
+        _repo.AddService(service);
+        await _repo.SaveChangesAsync();
+
+        return MapService(service);
+    }
+
+    public async Task<ServiceCatalogDto> UpdateServiceAsync(int serviceId, ServiceCatalogDto dto)
+    {
+        var service = await _repo.GetServiceByIdAsync(serviceId)
+            ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ.");
+
+        if (string.IsNullOrWhiteSpace(dto.ServiceName))
+            throw new InvalidOperationException("Tên dịch vụ không được để trống.");
+
+        if (dto.UnitPrice < 0)
+            throw new InvalidOperationException("Giá dịch vụ không hợp lệ.");
+
+        service.ServiceName = dto.ServiceName.Trim();
+        service.UnitPrice = dto.UnitPrice;
+        service.BillingCycle = NormalizeBillingCycle(dto.BillingCycle);
+        service.Unit = dto.Unit;
+
+        await _repo.SaveChangesAsync();
+
+        return MapService(service);
+    }
+
+    private static string NormalizeBillingCycle(string? value)
+    {
+        var v = (value ?? string.Empty).Trim();
+        return v.ToLowerInvariant() switch
+        {
+            "yearly" or "year" or "năm" or "nam" => "Yearly",
+            "monthly" or "month" or "tháng" or "thang" or "" => "Monthly",
+            _ => throw new InvalidOperationException("Chu kỳ tính giá chỉ nhận 'Monthly' (theo tháng) hoặc 'Yearly' (theo năm).")
+        };
+    }
+
+    private static ServiceCatalogDto MapService(Service s) => new()
+    {
+        ServiceId = s.ServiceId,
+        ServiceName = s.ServiceName,
+        UnitPrice = s.UnitPrice,
+        BillingCycle = s.BillingCycle,
+        Unit = s.Unit,
+        Icon = s.Icon
+    };
+
+    public async Task DeleteServiceAsync(int serviceId)
+    {
+        var service = await _repo.GetServiceByIdAsync(serviceId)
+            ?? throw new KeyNotFoundException("Không tìm thấy dịch vụ.");
+
+        _repo.RemoveService(service);
+        await _repo.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<DeviceCatalogDto>> GetDeviceCatalogAsync()
+    {
+        var items = await _repo.GetActiveDeviceCatalogsOrderedAsync();
+        return items.Select(MapDeviceCatalog);
+    }
+
+    public async Task<DeviceCatalogDto> CreateDeviceCatalogAsync(DeviceCatalogDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            throw new InvalidOperationException("Tên thiết bị không được để trống.");
+
+        var name = dto.Name.Trim();
+        if (await _repo.DeviceCatalogNameExistsAsync(name))
+            throw new InvalidOperationException("Thiết bị này đã có trong danh mục.");
+
+        var entity = new DeviceCatalog
+        {
+            Name = name,
+            Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim()
+        };
+
+        _repo.AddDeviceCatalog(entity);
+        await _repo.SaveChangesAsync();
+
+        return MapDeviceCatalog(entity);
+    }
+
+    public async Task<DeviceCatalogDto> UpdateDeviceCatalogAsync(int deviceCatalogId, DeviceCatalogDto dto)
+    {
+        var entity = await _repo.GetDeviceCatalogByIdAsync(deviceCatalogId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị trong danh mục.");
+
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            throw new InvalidOperationException("Tên thiết bị không được để trống.");
+
+        var name = dto.Name.Trim();
+        if (await _repo.DeviceCatalogNameExistsAsync(name, deviceCatalogId))
+            throw new InvalidOperationException("Thiết bị này đã có trong danh mục.");
+
+        entity.Name = name;
+        entity.Icon = string.IsNullOrWhiteSpace(dto.Icon) ? null : dto.Icon.Trim();
+
+        await _repo.SaveChangesAsync();
+
+        return MapDeviceCatalog(entity);
+    }
+
+    public async Task DeleteDeviceCatalogAsync(int deviceCatalogId)
+    {
+        var entity = await _repo.GetDeviceCatalogByIdAsync(deviceCatalogId)
+            ?? throw new KeyNotFoundException("Không tìm thấy thiết bị trong danh mục.");
+
+        _repo.RemoveDeviceCatalog(entity);
+        await _repo.SaveChangesAsync();
+    }
+
+    private static DeviceCatalogDto MapDeviceCatalog(DeviceCatalog d) => new()
+    {
+        DeviceCatalogId = d.DeviceCatalogId,
+        Name = d.Name,
+        Icon = d.Icon
+    };
 }

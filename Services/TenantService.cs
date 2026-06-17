@@ -9,17 +9,17 @@ namespace Backend.Services;
 public class TenantService : ITenantService
 {
     private readonly ITenantRepository _tenants;
-    private readonly IWebHostEnvironment _env;
+    private readonly IFileStorageService _fileStorage;
 
-    public TenantService(ITenantRepository tenants, IWebHostEnvironment env)
+    public TenantService(ITenantRepository tenants, IFileStorageService fileStorage)
     {
         _tenants = tenants;
-        _env = env;
+        _fileStorage = fileStorage;
     }
 
-    public async Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null)
+    public async Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null, int? buildingId = null, int? ownerUserId = null)
     {
-        var list = await _tenants.ListWithContractsAndRoomsAsync();
+        var list = await _tenants.ListWithContractsAndRoomsAsync(ownerUserId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -40,12 +40,15 @@ public class TenantService : ITenantService
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
             dtos = dtos.Where(t => string.Equals(t.Status, status, StringComparison.OrdinalIgnoreCase)).ToList();
 
+        if (buildingId.HasValue)
+            dtos = dtos.Where(t => t.BuildingId == buildingId.Value).ToList();
+
         return dtos; 
     }
 
-    public async Task<TenantDetailDto?> GetByIdAsync(int id)
+    public async Task<TenantDetailDto?> GetByIdAsync(int id, int? ownerUserId = null)
     {
-        var tenant = await _tenants.GetWithContractsAndRoomsByIdAsync(id);
+        var tenant = await _tenants.GetWithContractsAndRoomsByIdAsync(id, ownerUserId);
         if (tenant == null) return null;
 
         var dto = MapToDetailDto(tenant);
@@ -159,18 +162,8 @@ public class TenantService : ITenantService
         if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
             throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
 
-        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "cccd");
-        Directory.CreateDirectory(uploadsDir);
-
         var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        tenant.CCCDImage = $"/uploads/cccd/{fileName}";
+        tenant.CCCDImage = await _fileStorage.UploadFormFileAsync(file, "cccd", fileName);
         tenant.UpdatedAt = DateTime.UtcNow;
         await _tenants.SaveChangesAsync();
 
@@ -192,21 +185,11 @@ public class TenantService : ITenantService
         if (ext is not (".jpg" or ".jpeg" or ".png"))
             throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG.");
 
-        var uploadsDir = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "avatars");
-        Directory.CreateDirectory(uploadsDir);
-
         if (!string.IsNullOrEmpty(tenant.Avatar))
-            TryDeletePhysicalFile(tenant.Avatar, "avatars");
+            await _fileStorage.DeleteAsync(tenant.Avatar);
 
         var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        tenant.Avatar = $"/uploads/avatars/{fileName}";
+        tenant.Avatar = await _fileStorage.UploadFormFileAsync(file, "avatars", fileName);
         tenant.UpdatedAt = DateTime.UtcNow;
         await _tenants.SaveChangesAsync();
 
@@ -220,59 +203,10 @@ public class TenantService : ITenantService
 
         if (!string.IsNullOrEmpty(tenant.CCCDImage))
         {
-            TryDeletePhysicalFile(tenant.CCCDImage, "cccd");
+            await _fileStorage.DeleteAsync(tenant.CCCDImage);
             tenant.CCCDImage = null;
             tenant.UpdatedAt = DateTime.UtcNow;
             await _tenants.SaveChangesAsync();
-        }
-    }
-
-    private void TryDeletePhysicalFile(string relativePath)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(relativePath)) return;
-
-            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-
-           
-            var normalized = relativePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-            var fullPath = Path.GetFullPath(Path.Combine(webRoot, normalized));
-
-           
-            if (!fullPath.StartsWith(Path.GetFullPath(webRoot), StringComparison.OrdinalIgnoreCase))
-                return;
-
-            if (File.Exists(fullPath))
-                File.Delete(fullPath);
-        }
-        catch
-        {
-            // Bỏ qua lỗi khi dọn file cũ
-        }
-    }
-
-
-    private void TryDeletePhysicalFile(string relativePath, string folder)
-    {
-        try
-        {
-            var fileName = Path.GetFileName(relativePath);
-            if (string.IsNullOrEmpty(fileName)) return;
-
-            var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-            var fullPath = Path.GetFullPath(Path.Combine(webRoot, "uploads", folder, fileName));
-
-            // Chống path-traversal
-            if (!fullPath.StartsWith(Path.GetFullPath(webRoot), StringComparison.OrdinalIgnoreCase))
-                return;
-
-            if (File.Exists(fullPath))
-                File.Delete(fullPath);
-        }
-        catch
-        {
-            // Bỏ qua lỗi khi dọn file cũ
         }
     }
 
@@ -336,6 +270,8 @@ public class TenantService : ITenantService
             ContractId = c.ContractId,
             RoomId = c.RoomId,
             RoomNumber = c.Room?.RoomName ?? string.Empty,
+            BuildingId = c.Room?.BuildingId,
+            BuildingName = c.Room?.Building?.BuildingName,
             StartDate = c.StartDate,
             EndDate = c.EndDate,
             Deposit = c.Deposit,
@@ -382,6 +318,8 @@ public class TenantService : ITenantService
             Status = MapStatus(tenant, active, latest),
             RoomId = active?.RoomId,
             RoomNumber = active?.Room?.RoomName,
+            BuildingId = active?.Room?.BuildingId,
+            BuildingName = active?.Room?.Building?.BuildingName,
             ContractId = active?.ContractId,
             MoveInDate = active?.StartDate,
             MoveOutDate = active?.Status == "Terminated" ? active.EndDate : null,
@@ -412,6 +350,8 @@ public class TenantService : ITenantService
             Status = list.Status,
             RoomId = list.RoomId,
             RoomNumber = list.RoomNumber,
+            BuildingId = list.BuildingId,
+            BuildingName = list.BuildingName,
             ContractId = list.ContractId,
             MoveInDate = list.MoveInDate,
             MoveOutDate = list.MoveOutDate,

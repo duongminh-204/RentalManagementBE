@@ -38,10 +38,12 @@ public class RoomDeviceDto
 {
     public int DeviceId { get; set; }
     public int RoomId { get; set; }
+    public int? DeviceCatalogId { get; set; }
     public string DeviceName { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public string Status { get; set; } = "Working";
-    public string? Note { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? Icon { get; set; }
 }
 
 public class RoomTenantDto
@@ -87,9 +89,17 @@ public class ServiceCatalogDto
     public int ServiceId { get; set; }
     public string ServiceName { get; set; } = string.Empty;
     public decimal UnitPrice { get; set; }
+    // "Monthly" (theo tháng) hoặc "Yearly" (theo năm)
+    public string BillingCycle { get; set; } = "Monthly";
     public string? Unit { get; set; }
-    public string? Description { get; set; }
-    public bool IsActive { get; set; }
+    public string? Icon { get; set; }
+}
+
+public class DeviceCatalogDto
+{
+    public int DeviceCatalogId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Icon { get; set; }
 }
 
 public class RoomServiceItemDto
@@ -99,8 +109,9 @@ public class RoomServiceItemDto
     public int ServiceId { get; set; }
     public string ServiceName { get; set; } = string.Empty;
     public decimal UnitPrice { get; set; }
+    public string BillingCycle { get; set; } = "Monthly";
     public string? Unit { get; set; }
-    public int Quantity { get; set; }
+    public string? Icon { get; set; }
 }
 
 public class CreateRoomImageDto
@@ -110,10 +121,11 @@ public class CreateRoomImageDto
 
 public class CreateDeviceDto
 {
+    public int? DeviceCatalogId { get; set; }
     public string DeviceName { get; set; } = string.Empty;
     public int Quantity { get; set; } = 1;
     public string Status { get; set; } = "Working";
-    public string? Note { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 public class UpdateDeviceDto : CreateDeviceDto;
@@ -121,12 +133,6 @@ public class UpdateDeviceDto : CreateDeviceDto;
 public class AssignRoomServiceDto
 {
     public int ServiceId { get; set; }
-    public int Quantity { get; set; } = 1;
-}
-
-public class UpdateRoomServiceDto
-{
-    public int Quantity { get; set; } = 1;
 }
 
 public class AssignTenantDto

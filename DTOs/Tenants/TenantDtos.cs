@@ -18,6 +18,8 @@ public class TenantListDto
     public string Status { get; set; } = "inactive";
     public int? RoomId { get; set; }
     public string? RoomNumber { get; set; }
+    public int? BuildingId { get; set; }
+    public string? BuildingName { get; set; }
     public int? ContractId { get; set; }
     public DateTime? MoveInDate { get; set; }
     public DateTime? MoveOutDate { get; set; }
@@ -36,6 +38,8 @@ public class TenantHistoryDto
     public int ContractId { get; set; }
     public int RoomId { get; set; }
     public string RoomNumber { get; set; } = string.Empty;
+    public int? BuildingId { get; set; }
+    public string? BuildingName { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     public decimal Deposit { get; set; }

@@ -19,6 +19,7 @@ public class RentalManagementDb : DbContext
     public DbSet<Contract> Contracts { get; set; }
     public DbSet<Service> Services { get; set; }
     public DbSet<RoomService> RoomServices { get; set; }
+    public DbSet<DeviceCatalog> DeviceCatalogs { get; set; }
     public DbSet<Device> Devices { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<UtilityUsage> UtilityUsages { get; set; }
@@ -193,7 +194,31 @@ public class RentalManagementDb : DbContext
         // =========================
         modelBuilder.Entity<Contract>()
             .Property(x => x.Deposit)
+            .HasPrecision(18, 2)
             .HasDefaultValue(0m);
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.RentPrice)
+            .HasPrecision(18, 2)
+            .HasDefaultValue(0m);
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.DepositRefundAmount)
+            .HasPrecision(18, 2)
+            .HasDefaultValue(0m);
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.DepositDeductionAmount)
+            .HasPrecision(18, 2)
+            .HasDefaultValue(0m);
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.PaymentCycle)
+            .HasDefaultValue("Monthly");
+
+        modelBuilder.Entity<Contract>()
+            .Property(x => x.DepositStatus)
+            .HasDefaultValue("Holding");
 
         modelBuilder.Entity<Contract>()
             .Property(x => x.Status)
@@ -207,6 +232,9 @@ public class RentalManagementDb : DbContext
             .HasIndex(x => x.Status);
 
         modelBuilder.Entity<Contract>()
+            .HasIndex(x => x.EndDate);
+
+        modelBuilder.Entity<Contract>()
             .HasOne(x => x.Room)
             .WithMany(x => x.Contracts)
             .HasForeignKey(x => x.RoomId)
@@ -218,24 +246,39 @@ public class RentalManagementDb : DbContext
             .HasForeignKey(x => x.TenantId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<Contract>()
+            .HasOne(x => x.ParentContract)
+            .WithMany()
+            .HasForeignKey(x => x.ParentContractId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // =========================
         // Services
         // =========================
         modelBuilder.Entity<Service>()
-            .Property(x => x.IsActive)
-            .HasDefaultValue(true);
-
-        modelBuilder.Entity<Service>()
             .Property(x => x.UnitPrice)
             .HasColumnType("decimal(18,2)");
+
+        modelBuilder.Entity<Service>()
+            .Property(x => x.ServiceName)
+            .HasMaxLength(100);
+
+        modelBuilder.Entity<Service>()
+            .Property(x => x.BillingCycle)
+            .HasMaxLength(20)
+            .HasDefaultValue("Monthly");
+
+        modelBuilder.Entity<Service>()
+            .Property(x => x.Icon)
+            .HasMaxLength(50);
+
+        modelBuilder.Entity<Service>()
+            .HasIndex(x => x.ServiceName)
+            .IsUnique();
 
         // =========================
         // RoomServices
         // =========================
-        modelBuilder.Entity<RoomService>()
-            .Property(x => x.Quantity)
-            .HasDefaultValue(1);
-
         modelBuilder.Entity<RoomService>()
             .HasOne(x => x.Room)
             .WithMany(x => x.RoomServices)
@@ -249,7 +292,24 @@ public class RentalManagementDb : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         // =========================
-        // Devices
+        // DeviceCatalogs (danh mục thiết bị dùng chung - seed sẵn)
+        // =========================
+        modelBuilder.Entity<DeviceCatalog>(entity =>
+        {
+            entity.HasKey(x => x.DeviceCatalogId);
+
+            entity.Property(x => x.Name)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
+            entity.Property(x => x.Icon)
+                  .HasMaxLength(50);
+
+            entity.HasIndex(x => x.Name).IsUnique();
+        });
+
+        // =========================
+        // Devices (bảng nối phòng <-> danh mục thiết bị)
         // =========================
         modelBuilder.Entity<Device>()
             .Property(x => x.Quantity)
@@ -264,6 +324,13 @@ public class RentalManagementDb : DbContext
             .WithMany(x => x.Devices)
             .HasForeignKey(x => x.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Device>()
+            .HasOne(x => x.DeviceCatalog)
+            .WithMany(x => x.Devices)
+            .HasForeignKey(x => x.DeviceCatalogId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // =========================
         // Vehicles

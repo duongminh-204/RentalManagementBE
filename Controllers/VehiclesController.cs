@@ -1,11 +1,14 @@
 using Backend.DTOs.Vehicles;
 using Backend.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controllers;
 
 [Route("api/vehicles")]
 [ApiController]
+[Authorize]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleService _vehicleService;
@@ -19,58 +22,75 @@ public class VehiclesController : ControllerBase
     public async Task<ActionResult<IEnumerable<VehicleDto>>> GetAll(
         [FromQuery] string? status,
         [FromQuery] string? type,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] int? buildingId)
     {
-        var data = await _vehicleService.GetAllAsync(status, type, search);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _vehicleService.GetAllAsync(status, type, search, buildingId, userId);
         return Ok(data);
     }
 
     [HttpGet("search")]
     public async Task<ActionResult<IEnumerable<VehicleDto>>> Search([FromQuery] string licensePlate)
     {
-        var data = await _vehicleService.SearchByLicensePlateAsync(licensePlate);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _vehicleService.SearchByLicensePlateAsync(licensePlate, userId);
         return Ok(data);
     }
 
     [HttpGet("unknown")]
     public async Task<ActionResult<IEnumerable<VehicleDto>>> GetUnknown()
     {
-        var data = await _vehicleService.GetUnknownAsync();
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _vehicleService.GetUnknownAsync(userId);
         return Ok(data);
     }
 
     [HttpGet("parking-fee/summary")]
     public async Task<ActionResult<ParkingFeeSummaryDto>> GetParkingFeeSummary()
     {
-        var data = await _vehicleService.GetParkingFeeSummaryAsync();
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _vehicleService.GetParkingFeeSummaryAsync(userId);
         return Ok(data);
     }
 
     [HttpGet("type")]
     public async Task<ActionResult<IEnumerable<VehicleDto>>> GetByType([FromQuery] string type)
     {
-        var data = await _vehicleService.GetByTypeAsync(type);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _vehicleService.GetByTypeAsync(type, userId);
         return Ok(data);
     }
 
     [HttpGet("room/{roomId:int}")]
     public async Task<ActionResult<IEnumerable<VehicleDto>>> GetByRoom(int roomId)
     {
-        var data = await _vehicleService.GetByRoomIdAsync(roomId);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _vehicleService.GetByRoomIdAsync(roomId, userId);
         return Ok(data);
     }
 
     [HttpGet("tenant/{tenantId:int}")]
     public async Task<ActionResult<IEnumerable<VehicleDto>>> GetByTenant(int tenantId)
     {
-        var data = await _vehicleService.GetByTenantIdAsync(tenantId);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _vehicleService.GetByTenantIdAsync(tenantId, userId);
         return Ok(data);
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<VehicleDto>> GetById(int id)
     {
-        var vehicle = await _vehicleService.GetByIdAsync(id);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var vehicle = await _vehicleService.GetByIdAsync(id, userId);
         return vehicle != null ? Ok(vehicle) : NotFound();
     }
 
@@ -137,5 +157,11 @@ public class VehiclesController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    private bool TryGetUserId(out int userId)
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out userId);
     }
 }

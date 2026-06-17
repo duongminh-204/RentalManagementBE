@@ -10,22 +10,27 @@ namespace Backend.Services;
 public class VehicleService : IVehicleService
 {
     private readonly IVehicleRepository _vehicles;
-    private readonly IWebHostEnvironment _env;
+    private readonly IFileStorageService _fileStorage;
 
     private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
     {
         "active", "inactive", "unknown"
     };
 
-    public VehicleService(IVehicleRepository vehicles, IWebHostEnvironment env)
+    public VehicleService(IVehicleRepository vehicles, IFileStorageService fileStorage)
     {
         _vehicles = vehicles;
-        _env = env;
+        _fileStorage = fileStorage;
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null)
+    public async Task<IEnumerable<VehicleDto>> GetAllAsync(string? status = null, string? type = null, string? search = null, int? buildingId = null, int? ownerUserId = null)
     {
         var query = _vehicles.QueryWithTenantAndRoom();
+
+        if (buildingId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.BuildingId == buildingId.Value);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
 
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
         {
@@ -55,47 +60,71 @@ public class VehicleService : IVehicleService
         return list.Select(MapToDto);
     }
 
-    public async Task<VehicleDto?> GetByIdAsync(int id)
+    public async Task<VehicleDto?> GetByIdAsync(int id, int? ownerUserId = null)
     {
-        var vehicle = await _vehicles.QueryWithTenantAndRoom().FirstOrDefaultAsync(v => v.VehicleId == id);
+        var vehicle = await _vehicles.QueryWithTenantAndRoom()
+            .FirstOrDefaultAsync(v =>
+                v.VehicleId == id &&
+                (!ownerUserId.HasValue || (v.Room != null && v.Room.Building.UserId == ownerUserId.Value)));
         return vehicle == null ? null : MapToDto(vehicle);
     }
 
-    public async Task<IEnumerable<VehicleDto>> SearchByLicensePlateAsync(string licensePlate)
+    public async Task<IEnumerable<VehicleDto>> SearchByLicensePlateAsync(string licensePlate, int? ownerUserId = null)
     {
         if (string.IsNullOrWhiteSpace(licensePlate))
             return Array.Empty<VehicleDto>();
 
         var q = licensePlate.Trim().ToLowerInvariant();
-        var list = await _vehicles.QueryWithTenantAndRoom()
-            .Where(v => v.LicensePlateNumber.ToLower().Contains(q))
+        var query = _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.LicensePlateNumber.ToLower().Contains(q));
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query
             .ToListAsync();
         return list.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetByRoomIdAsync(int roomId)
+    public async Task<IEnumerable<VehicleDto>> GetByRoomIdAsync(int roomId, int? ownerUserId = null)
     {
-        var list = await _vehicles.QueryWithTenantAndRoom().Where(v => v.RoomId == roomId).ToListAsync();
+        var query = _vehicles.QueryWithTenantAndRoom().Where(v => v.RoomId == roomId);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query.ToListAsync();
         return list.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetByTenantIdAsync(int tenantId)
+    public async Task<IEnumerable<VehicleDto>> GetByTenantIdAsync(int tenantId, int? ownerUserId = null)
     {
-        var list = await _vehicles.QueryWithTenantAndRoom().Where(v => v.TenantId == tenantId).ToListAsync();
+        var query = _vehicles.QueryWithTenantAndRoom().Where(v => v.TenantId == tenantId);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query.ToListAsync();
         return list.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetUnknownAsync()
+    public async Task<IEnumerable<VehicleDto>> GetUnknownAsync(int? ownerUserId = null)
     {
-        var list = await _vehicles.QueryWithTenantAndRoom()
-            .Where(v => v.Status == "unknown" || v.TenantId == null)
+        var query = _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.Status == "unknown" || v.TenantId == null);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query
             .ToListAsync();
         return list.Select(MapToDto);
     }
 
-    public async Task<ParkingFeeSummaryDto> GetParkingFeeSummaryAsync()
+    public async Task<ParkingFeeSummaryDto> GetParkingFeeSummaryAsync(int? ownerUserId = null)
     {
-        var active = await _vehicles.ListActiveForParkingSummaryAsync();
+        var query = _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.Status == "active");
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var active = await query.ToListAsync();
         return new ParkingFeeSummaryDto
         {
             TotalMonthlyFee = active.Sum(v => v.ParkingFee),
@@ -103,14 +132,18 @@ public class VehicleService : IVehicleService
         };
     }
 
-    public async Task<IEnumerable<VehicleDto>> GetByTypeAsync(string type)
+    public async Task<IEnumerable<VehicleDto>> GetByTypeAsync(string type, int? ownerUserId = null)
     {
         if (string.IsNullOrWhiteSpace(type))
             return Array.Empty<VehicleDto>();
 
         var t = type.Trim().ToLowerInvariant();
-        var list = await _vehicles.QueryWithTenantAndRoom()
-            .Where(v => v.VehicleType != null && v.VehicleType.ToLower() == t)
+        var query = _vehicles.QueryWithTenantAndRoom()
+            .Where(v => v.VehicleType != null && v.VehicleType.ToLower() == t);
+        if (ownerUserId.HasValue)
+            query = query.Where(v => v.Room != null && v.Room.Building.UserId == ownerUserId.Value);
+
+        var list = await query
             .ToListAsync();
         return list.Select(MapToDto);
     }
@@ -149,7 +182,7 @@ public class VehicleService : IVehicleService
             ?? throw new KeyNotFoundException("Không tìm thấy xe.");
 
         if (!string.IsNullOrEmpty(vehicle.VehicleImage))
-            TryDeletePhysicalFile(vehicle.VehicleImage);
+            await _fileStorage.DeleteAsync(vehicle.VehicleImage);
 
         _vehicles.Remove(vehicle);
         await _vehicles.SaveChangesAsync();
@@ -170,24 +203,11 @@ public class VehicleService : IVehicleService
         if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
             throw new InvalidOperationException("Chỉ chấp nhận JPG, PNG, WEBP.");
 
-        var uploadsDir = Path.Combine(
-            _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"),
-            "uploads",
-            "vehicles");
-        Directory.CreateDirectory(uploadsDir);
-
         if (!string.IsNullOrEmpty(vehicle.VehicleImage))
-            TryDeletePhysicalFile(vehicle.VehicleImage);
+            await _fileStorage.DeleteAsync(vehicle.VehicleImage);
 
         var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
-        var filePath = Path.Combine(uploadsDir, fileName);
-
-        await using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        vehicle.VehicleImage = $"/uploads/vehicles/{fileName}";
+        vehicle.VehicleImage = await _fileStorage.UploadFormFileAsync(file, "vehicles", fileName);
         vehicle.UpdatedAt = DateTime.UtcNow;
         await _vehicles.SaveChangesAsync();
 
@@ -272,28 +292,10 @@ public class VehicleService : IVehicleService
         TenantName = v.Tenant?.FullName,
         RoomId = v.RoomId,
         RoomNumber = v.Room?.RoomName,
+        BuildingId = v.Room?.BuildingId,
+        BuildingName = v.Room?.Building?.BuildingName,
         CreatedAt = v.CreatedAt,
         UpdatedAt = v.UpdatedAt
     };
 
-    private void TryDeletePhysicalFile(string relativePath)
-    {
-        try
-        {
-            var fileName = Path.GetFileName(relativePath);
-            if (string.IsNullOrEmpty(fileName)) return;
-
-            var fullPath = Path.Combine(
-                _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"),
-                "uploads",
-                "vehicles",
-                fileName);
-            if (File.Exists(fullPath))
-                File.Delete(fullPath);
-        }
-        catch
-        {
-            // ignore cleanup errors
-        }
-    }
 }

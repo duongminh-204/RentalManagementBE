@@ -8,8 +8,6 @@ public class RoomService
 
     public int ServiceId { get; set; }
 
-    public int Quantity { get; set; } = 1;
-
     public Room Room { get; set; }
 
     public Service Service { get; set; }

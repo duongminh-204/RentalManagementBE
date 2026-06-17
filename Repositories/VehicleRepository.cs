@@ -18,7 +18,8 @@ public class VehicleRepository : IVehicleRepository
         _db.Vehicles
             .AsNoTracking()
             .Include(v => v.Tenant)
-            .Include(v => v.Room);
+            .Include(v => v.Room)
+            .ThenInclude(r => r.Building);
 
     public async Task<Vehicle?> GetTrackedByIdAsync(int vehicleId, CancellationToken cancellationToken = default) =>
         await _db.Vehicles.FirstOrDefaultAsync(v => v.VehicleId == vehicleId, cancellationToken);
@@ -34,12 +35,6 @@ public class VehicleRepository : IVehicleRepository
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _db.SaveChangesAsync(cancellationToken);
-
-    public async Task<List<Vehicle>> ListActiveForParkingSummaryAsync(CancellationToken cancellationToken = default) =>
-        await _db.Vehicles
-            .AsNoTracking()
-            .Where(v => v.Status == "active")
-            .ToListAsync(cancellationToken);
 
     public async Task<bool> TenantExistsAsync(int tenantId, CancellationToken cancellationToken = default) =>
         await _db.Tenants.AnyAsync(t => t.TenantId == tenantId, cancellationToken);

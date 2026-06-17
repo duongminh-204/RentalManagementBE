@@ -2,11 +2,13 @@ using Backend.Services.Interfaces;
 using Backend.DTOs.Dashboard;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controllers;
 
 [Route("api/dashboard")]
 [ApiController]
+[Authorize]
 public class DashboardController : ControllerBase
 {
     private readonly IDashboardService _dashboardService;
@@ -21,22 +23,28 @@ public class DashboardController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats([FromQuery] int? buildingId, [FromQuery] int? month, [FromQuery] int? year)
     {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
         var today = DateTime.Today;
-        var data = await _dashboardService.GetDashboardStatsAsync(month ?? today.Month, year ?? today.Year, buildingId);
+        var data = await _dashboardService.GetDashboardStatsAsync(month ?? today.Month, year ?? today.Year, buildingId, userId);
         return Ok(data);
     }
 
     [HttpGet("rooms/stats")]
     public async Task<IActionResult> GetRoomStats([FromQuery] int? buildingId)
     {
-        var data = await _dashboardService.GetRoomStatsAsync(buildingId);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _dashboardService.GetRoomStatsAsync(buildingId, userId);
         return Ok(data);
     }
 
     [HttpGet("debt/info")]
     public async Task<IActionResult> GetDebtInfo([FromQuery] int? buildingId)
     {
-        var data = await _dashboardService.GetDebtInfoAsync(buildingId);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _dashboardService.GetDebtInfoAsync(buildingId, userId);
         return Ok(data);
     }
 
@@ -71,7 +79,9 @@ public class DashboardController : ControllerBase
     [HttpGet("revenue/{month:int}/{year:int}")]
     public async Task<IActionResult> GetRevenue(int month, int year, [FromQuery] int? buildingId)
     {
-        var data = await _dashboardService.GetRevenueAsync(month, year, buildingId);
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        var data = await _dashboardService.GetRevenueAsync(month, year, buildingId, userId);
         return Ok(data);
     }
 
@@ -119,14 +129,22 @@ public class DashboardController : ControllerBase
     [HttpGet("export-excel")]
     public async Task<IActionResult> ExportDashboardExcel([FromQuery] int? buildingId, [FromQuery] int? month, [FromQuery] int? year)
     {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
         var today = DateTime.Today;
         var selectedMonth = month ?? today.Month;
         var selectedYear = year ?? today.Year;
 
-        var exportFile = await _dashboardService.ExportDashboardExcelAsync(selectedMonth, selectedYear, buildingId);
+        var exportFile = await _dashboardService.ExportDashboardExcelAsync(selectedMonth, selectedYear, buildingId, userId);
         return File(
             exportFile.Content,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             exportFile.FileName);
+    }
+
+    private bool TryGetUserId(out int userId)
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out userId);
     }
 }

@@ -4,8 +4,8 @@ namespace Backend.Services.Interfaces;
 
 public interface ITenantService
 {
-    Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null);
-    Task<TenantDetailDto?> GetByIdAsync(int id);
+    Task<IEnumerable<TenantListDto>> GetAllAsync(string? status = null, string? search = null, int? buildingId = null, int? ownerUserId = null);
+    Task<TenantDetailDto?> GetByIdAsync(int id, int? ownerUserId = null);
     Task<TenantDetailDto> CreateAsync(CreateTenantDto dto);
     Task<TenantDetailDto> UpdateAsync(int id, UpdateTenantDto dto);
     Task DeleteAsync(int id);

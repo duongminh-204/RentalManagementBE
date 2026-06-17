@@ -2,12 +2,13 @@ using Backend.DTOs.Rooms;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]   // Bỏ comment sau khi có Auth
+    [Authorize]
     public class RoomController : ControllerBase
     {
         private readonly IRoomService _roomService;
@@ -20,7 +21,9 @@ namespace Backend.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<RoomDto>>> GetAll([FromQuery] int? buildingId)
         {
-            var rooms = await _roomService.GetAllRoomsAsync(buildingId);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            var rooms = await _roomService.GetAllRoomsAsync(buildingId, userId);
             return Ok(new { data = rooms });
         }
 
@@ -98,15 +101,25 @@ namespace Backend.Controllers
         [HttpGet("status/{status}")]
         public async Task<ActionResult<IEnumerable<RoomDto>>> GetByStatus(string status)
         {
-            var rooms = await _roomService.GetRoomsByStatusAsync(status);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            var rooms = await _roomService.GetRoomsByStatusAsync(status, userId);
             return Ok(new { data = rooms });
         }
 
         [HttpGet("stats")]
         public async Task<ActionResult<RoomStatsDto>> GetStats([FromQuery] int? buildingId)
         {
-            var stats = await _roomService.GetRoomStatsAsync(buildingId);
+            if (!TryGetUserId(out var userId)) return Unauthorized();
+
+            var stats = await _roomService.GetRoomStatsAsync(buildingId, userId);
             return Ok(stats);
+        }
+
+        private bool TryGetUserId(out int userId)
+        {
+            var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.TryParse(claim, out userId);
         }
     }
 }

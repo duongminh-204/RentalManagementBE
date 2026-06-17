@@ -22,11 +22,8 @@ obj/
 # Environment variables
 .env
 
-# ASP.NET Core app settings
-appsettings.Development.json
-
-# Nếu appsettings.json chứa secret thì ignore luôn
-# appsettings.json
+# Local config — copy từ appsettings.example.json
+appsettings.json
 
 # Publish output
 publish/
@@ -64,3 +61,5 @@ coverage/
 # Resharper
 _ReSharper*/
 *.DotSettings.user
+/wwwroot/uploads/
+/wwwroot/uploads/*

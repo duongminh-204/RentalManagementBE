@@ -15,12 +15,16 @@ public class DashboardRepository : IDashboardRepository
         _context = context;
     }
 
-    public async Task<List<DashboardRoomStatusRecordDto>> GetRoomStatusesAsync(int? buildingId = null)
+    public async Task<List<DashboardRoomStatusRecordDto>> GetRoomStatusesAsync(int? buildingId = null, int? ownerUserId = null)
     {
         var roomQuery = _context.Rooms.AsNoTracking().AsQueryable();
         if (buildingId.HasValue)
         {
             roomQuery = roomQuery.Where(room => room.BuildingId == buildingId.Value);
+        }
+        if (ownerUserId.HasValue)
+        {
+            roomQuery = roomQuery.Where(room => room.Building.UserId == ownerUserId.Value);
         }
 
         return await roomQuery
@@ -31,7 +35,7 @@ public class DashboardRepository : IDashboardRepository
             .ToListAsync();
     }
 
-    public async Task<List<DashboardDebtRecordDto>> GetDebtRecordsAsync(int? buildingId = null)
+    public async Task<List<DashboardDebtRecordDto>> GetDebtRecordsAsync(int? buildingId = null, int? ownerUserId = null)
     {
         var invoiceQuery = _context.Invoices
             .AsNoTracking()
@@ -44,6 +48,10 @@ public class DashboardRepository : IDashboardRepository
         if (buildingId.HasValue)
         {
             invoiceQuery = invoiceQuery.Where(invoice => invoice.Room.BuildingId == buildingId.Value);
+        }
+        if (ownerUserId.HasValue)
+        {
+            invoiceQuery = invoiceQuery.Where(invoice => invoice.Room.Building.UserId == ownerUserId.Value);
         }
 
         return await invoiceQuery
@@ -108,18 +116,6 @@ public class DashboardRepository : IDashboardRepository
             .ToListAsync();
     }
 
-    public Task<Invoice?> GetInvoiceForPaymentAsync(int invoiceId)
-    {
-        return _context.Invoices
-            .Include(invoice => invoice.Payments)
-            .FirstOrDefaultAsync(invoice => invoice.InvoiceId == invoiceId);
-    }
-
-    public Task AddPaymentAsync(Payment payment)
-    {
-        return _context.Payments.AddAsync(payment).AsTask();
-    }
-
     public async Task<decimal> GetMonthlyRevenueAsync(string monthYear, int? buildingId = null)
     {
         var invoiceQuery = _context.Invoices
@@ -130,18 +126,26 @@ public class DashboardRepository : IDashboardRepository
         {
             invoiceQuery = invoiceQuery.Where(invoice => invoice.Room.BuildingId == buildingId.Value);
         }
+        if (ownerUserId.HasValue)
+        {
+            invoiceQuery = invoiceQuery.Where(invoice => invoice.Room.Building.UserId == ownerUserId.Value);
+        }
 
         return await invoiceQuery
             .Where(invoice => invoice.MonthYear == monthYear)
             .SumAsync(invoice => (decimal?)invoice.TotalAmount) ?? 0m;
     }
 
-    public async Task<List<DashboardRevenueTargetRecordDto>> GetRevenueTargetsAsync(int? buildingId = null)
+    public async Task<List<DashboardRevenueTargetRecordDto>> GetRevenueTargetsAsync(int? buildingId = null, int? ownerUserId = null)
     {
         var roomQuery = _context.Rooms.AsNoTracking().AsQueryable();
         if (buildingId.HasValue)
         {
             roomQuery = roomQuery.Where(room => room.BuildingId == buildingId.Value);
+        }
+        if (ownerUserId.HasValue)
+        {
+            roomQuery = roomQuery.Where(room => room.Building.UserId == ownerUserId.Value);
         }
 
         return await roomQuery

@@ -14,9 +14,9 @@ namespace Backend.Services
             _repository = repository;
         }
 
-        public async Task<IEnumerable<RoomDto>> GetAllRoomsAsync(int? buildingId = null)
+        public async Task<IEnumerable<RoomDto>> GetAllRoomsAsync(int? buildingId = null, int? ownerUserId = null)
         {
-            var rooms = await _repository.GetAllAsync(buildingId);
+            var rooms = await _repository.GetAllAsync(buildingId, ownerUserId);
             return rooms.Select(MapToDto);
         }
 
@@ -99,15 +99,15 @@ namespace Backend.Services
             await _repository.DeleteAsync(id);
         }
 
-        public async Task<IEnumerable<RoomDto>> GetRoomsByStatusAsync(string status)
+        public async Task<IEnumerable<RoomDto>> GetRoomsByStatusAsync(string status, int? ownerUserId = null)
         {
-            var rooms = await _repository.GetByStatusAsync(status);
+            var rooms = await _repository.GetByStatusAsync(status, ownerUserId);
             return rooms.Select(MapToDto);
         }
 
-        public async Task<RoomStatsDto> GetRoomStatsAsync(int? buildingId = null)
+        public async Task<RoomStatsDto> GetRoomStatsAsync(int? buildingId = null, int? ownerUserId = null)
         {
-            return await _repository.GetStatsAsync(buildingId);
+            return await _repository.GetStatsAsync(buildingId, ownerUserId);
         }
 
         private static IEnumerable<Contract> GetRoomContracts(Room room) =>
@@ -166,10 +166,12 @@ namespace Backend.Services
                     {
                         DeviceId = d.DeviceId,
                         RoomId = d.RoomId,
+                        DeviceCatalogId = d.DeviceCatalogId,
                         DeviceName = d.DeviceName,
                         Quantity = d.Quantity,
                         Status = d.Status,
-                        Note = d.Note
+                        ImageUrl = d.ImageUrl,
+                        Icon = d.DeviceCatalog?.Icon
                     })
                     .ToList(),
                 Tenants = GetRoomContracts(room)
@@ -193,8 +195,9 @@ namespace Backend.Services
                         ServiceId = rs.ServiceId,
                         ServiceName = rs.Service.ServiceName,
                         UnitPrice = rs.Service.UnitPrice,
+                        BillingCycle = rs.Service.BillingCycle,
                         Unit = rs.Service.Unit,
-                        Quantity = rs.Quantity
+                        Icon = rs.Service.Icon
                     })
                     .ToList()
             };

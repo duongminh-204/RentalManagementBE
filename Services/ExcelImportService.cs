@@ -3,6 +3,7 @@ using System.Text;
 using Backend.DTOs.Dashboard;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
+using Backend.Services.Interfaces;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Identity;
 
@@ -47,18 +48,48 @@ public class ExcelImportService : Interfaces.IExcelImportService
         ["PaidAmount"] = ["PaidAmount", "SoTienDaThu", "Số tiền đã thu"],
     };
 
+    static ExcelImportService()
+    {
+        HeaderAliases["BuildingName"] = ["BuildingName", "TenToaNha", "Ten toa nha"];
+        HeaderAliases["FullName"] = HeaderAliases["FullName"].Concat(["HoTenKhach", "Ho ten khach"]).ToArray();
+        HeaderAliases["DateOfBirth"] = ["DateOfBirth", "NgaySinh", "Ngay sinh"];
+        HeaderAliases["Gender"] = ["Gender", "GioiTinh", "Gioi tinh"];
+        HeaderAliases["Occupation"] = ["Occupation", "NgheNghiep", "Nghe nghiep"];
+        HeaderAliases["Workplace"] = ["Workplace", "NoiLamViec", "Noi lam viec"];
+        HeaderAliases["MoveOutDate"] = ["MoveOutDate", "NgayRoiDi", "Ngay roi di"];
+        HeaderAliases["ContractStartDate"] = HeaderAliases["ContractStartDate"].Concat(["NgayBatDau", "Ngay bat dau"]).ToArray();
+        HeaderAliases["ContractEndDate"] = HeaderAliases["ContractEndDate"].Concat(["NgayKetThuc", "Ngay ket thuc"]).ToArray();
+        HeaderAliases["RentPrice"] = ["RentPrice", "GiaThue", "Gia thue"];
+        HeaderAliases["BillingCycle"] = ["BillingCycle", "ChuKyTinh", "Chu ky tinh", "ChuKyThanhToan", "Chu ky thanh toan"];
+        HeaderAliases["DepositStatus"] = ["DepositStatus", "TrangThaiCoc", "Trang thai coc"];
+        HeaderAliases["VehicleType"] = ["VehicleType", "LoaiXe", "Loai xe"];
+        HeaderAliases["Brand"] = ["Brand", "HangXe", "Hang xe"];
+        HeaderAliases["Color"] = ["Color", "MauSac", "Mau sac"];
+        HeaderAliases["LicensePlateNumber"] = ["LicensePlateNumber", "BienSo", "Bien so"];
+        HeaderAliases["RegistrationDate"] = ["RegistrationDate", "NgayDangKy", "Ngay dang ky"];
+        HeaderAliases["Notes"] = ["Notes", "GhiChu", "Ghi chu"];
+        HeaderAliases["DeviceName"] = ["DeviceName", "TenThietBi", "Ten thiet bi"];
+        HeaderAliases["DeviceCatalogName"] = ["DeviceCatalogName", "DanhMucThietBi", "Danh muc thiet bi"];
+        HeaderAliases["Quantity"] = ["Quantity", "SoLuong", "So luong"];
+        HeaderAliases["ImageUrl"] = ["ImageUrl", "Anh", "Image"];
+        HeaderAliases["Icon"] = ["Icon"];
+        HeaderAliases["ServiceName"] = ["ServiceName", "TenDichVu", "Ten dich vu"];
+        HeaderAliases["UnitPrice"] = ["UnitPrice", "DonGia", "Don gia"];
+        HeaderAliases["Unit"] = ["Unit", "DonVi", "Don vi"];
+    }
+
     private readonly IExcelImportRepository _excelImportRepository;
     private readonly IPasswordHasher<User> _passwordHasher;
-    private readonly IWebHostEnvironment _environment;
+    private readonly IFileStorageService _fileStorage;
 
     public ExcelImportService(
         IExcelImportRepository excelImportRepository,
         IPasswordHasher<User> passwordHasher,
-        IWebHostEnvironment environment)
+        IFileStorageService fileStorage)
     {
         _excelImportRepository = excelImportRepository;
         _passwordHasher = passwordHasher;
-        _environment = environment;
+        _fileStorage = fileStorage;
     }
 
     public async Task<ExcelImportResultDto> ImportDashboardSeedAsync(IFormFile file, CancellationToken cancellationToken = default)
@@ -82,6 +113,11 @@ public class ExcelImportService : Interfaces.IExcelImportService
         var owner = await EnsureDefaultOwnerAsync(cancellationToken);
         var building = await EnsureDefaultBuildingAsync(owner, cancellationToken);
 
+        await ImportBuildingAsync(
+            FindWorksheet(workbook, "Toa nha", "Buildings"),
+            building,
+            cancellationToken);
+
         var roomsByName = await _excelImportRepository.GetRoomsByBuildingAsync(building.BuildingId, NormalizeKey, cancellationToken);
 
         result.RoomsImported = await ImportRoomsAsync(
@@ -95,6 +131,42 @@ public class ExcelImportService : Interfaces.IExcelImportService
             roomsByName,
             result.Warnings,
             result,
+            cancellationToken);
+
+        var tenants = await _excelImportRepository.GetTenantsWithContractsAsync(cancellationToken);
+
+        result.ContractsImported += await ImportContractsAsync(
+            FindWorksheet(workbook, "Hop dong", "Contracts"),
+            roomsByName,
+            tenants,
+            result.Warnings,
+            cancellationToken);
+
+        result.VehiclesImported = await ImportVehiclesAsync(
+            FindWorksheet(workbook, "Phuong tien", "Vehicles"),
+            roomsByName,
+            tenants,
+            result.Warnings,
+            cancellationToken);
+
+        await ImportDeviceCatalogsAsync(
+            FindWorksheet(workbook, "Danh muc thiet bi", "DeviceCatalogs"),
+            cancellationToken);
+
+        result.DevicesImported = await ImportDevicesAsync(
+            FindWorksheet(workbook, "Thiet bi phong", "Devices"),
+            roomsByName,
+            result.Warnings,
+            cancellationToken);
+
+        result.ServicesImported = await ImportServicesAsync(
+            FindWorksheet(workbook, "Dich vu", "Services"),
+            cancellationToken);
+
+        await ImportRoomServicesAsync(
+            FindWorksheet(workbook, "Dich vu phong", "RoomServices"),
+            roomsByName,
+            result.Warnings,
             cancellationToken);
 
         result.InvoicesImported = await ImportInvoicesAsync(
@@ -224,24 +296,78 @@ public class ExcelImportService : Interfaces.IExcelImportService
             }
         }
 
-        var templatePath = GetTemplateFilePath();
-        Directory.CreateDirectory(Path.GetDirectoryName(templatePath)!);
-
         await using var sourceStream = file.OpenReadStream();
-        await using var targetStream = new FileStream(templatePath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await sourceStream.CopyToAsync(targetStream, cancellationToken);
+        using var memoryStream = new MemoryStream();
+        await sourceStream.CopyToAsync(memoryStream, cancellationToken);
+        await _fileStorage.SaveBytesAsync(memoryStream.ToArray(), TemplateDirectoryName, TemplateFileName, cancellationToken);
     }
 
     public async Task<(byte[] Content, string FileName)> GetTemplateFileAsync(CancellationToken cancellationToken = default)
     {
-        var templatePath = GetTemplateFilePath();
-        if (File.Exists(templatePath))
+        var savedTemplate = await _fileStorage.ReadBytesAsync(TemplateDirectoryName, TemplateFileName, cancellationToken);
+        return (savedTemplate ?? GenerateFullWorkbookTemplate(), TemplateFileName);
+    }
+
+    private static byte[] GenerateFullWorkbookTemplate()
+    {
+        using var workbook = new XLWorkbook();
+
+        var guideSheet = workbook.Worksheets.Add("Hướng dẫn");
+        guideSheet.Cell("A1").Value = "HƯỚNG DẪN NHẬP DỮ LIỆU";
+        guideSheet.Cell("A2").Value = "Điền dữ liệu theo từng sheet. Không đổi tên cột ở hàng 1.";
+        guideSheet.Cell("A3").Value = "Các sheet có thể để trống nếu chưa có dữ liệu tương ứng.";
+        guideSheet.Cell("A4").Value = "Kỳ hóa đơn dùng định dạng yyyy-MM, ví dụ: 2026-06.";
+        guideSheet.Range("A1:A4").Style.Alignment.WrapText = true;
+        guideSheet.Column("A").Width = 80;
+        guideSheet.Row(1).Style.Font.Bold = true;
+        guideSheet.Row(1).Style.Font.FontSize = 16;
+
+        AddTemplateSheet(workbook, "Tòa nhà", ["Tên tòa nhà", "Chủ trọ", "Địa chỉ", "Mô tả"]);
+        AddTemplateSheet(workbook, "Phòng trọ", ["Tên tòa nhà", "Tên phòng", "Trạng thái", "Giá phòng", "Giá điện", "Giá nước", "Diện tích", "Số người tối đa", "Mô tả"]);
+        AddTemplateSheet(workbook, "Khách thuê", ["Họ tên", "Số điện thoại", "Email", "CCCD", "Ngày sinh", "Giới tính", "Nghề nghiệp", "Nơi làm việc", "Địa chỉ", "Ngày vào ở", "Ngày rời đi", "Trạng thái", "Ghi chú"]);
+        AddTemplateSheet(workbook, "Hợp đồng", ["Tên phòng", "Họ tên khách", "Ngày bắt đầu", "Ngày kết thúc", "Giá thuê", "Tiền cọc", "Chu kỳ thanh toán", "Trạng thái cọc", "Hoàn cọc", "Khấu trừ cọc", "Trạng thái", "Ngày chấm dứt", "Lý do chấm dứt", "Ghi chú"]);
+        AddTemplateSheet(workbook, "Phương tiện", ["Biển số", "Loại xe", "Hãng xe", "Màu sắc", "Họ tên khách", "Tên phòng", "Phí gửi xe", "Trạng thái", "Ngày đăng ký", "Ghi chú"]);
+        AddTemplateSheet(workbook, "Danh mục thiết bị", ["Tên thiết bị", "Icon"]);
+        AddTemplateSheet(workbook, "Thiết bị phòng", ["Tên phòng", "Tên thiết bị", "Danh mục thiết bị", "Số lượng", "Trạng thái", "Ảnh"]);
+        AddTemplateSheet(workbook, "Dịch vụ", ["Tên dịch vụ", "Đơn giá", "Chu kỳ tính", "Đơn vị", "Icon"]);
+        AddTemplateSheet(workbook, "Dịch vụ phòng", ["Tên phòng", "Tên dịch vụ"]);
+        AddTemplateSheet(workbook, "Hóa đơn", ["Tên phòng", "Kỳ hóa đơn", "Tiền phòng", "Tiền điện", "Tiền nước", "Tiền dịch vụ", "Tiền gửi xe", "Khoản khác", "Giảm trừ", "Tổng tiền", "Hạn thanh toán", "Trạng thái", "Ngày thanh toán", "Số tiền đã thu", "Ghi chú"]);
+
+        using var memoryStream = new MemoryStream();
+        workbook.SaveAs(memoryStream);
+        return memoryStream.ToArray();
+    }
+
+    private static void AddTemplateSheet(XLWorkbook workbook, string sheetName, string[] headers)
+    {
+        var worksheet = workbook.Worksheets.Add(sheetName);
+        AddHeader(worksheet, headers);
+        FormatWorksheet(worksheet, headers.Select(_ => 18d).ToArray());
+    }
+
+    private async Task ImportBuildingAsync(IXLWorksheet? worksheet, Building building, CancellationToken cancellationToken)
+    {
+        if (worksheet == null)
         {
-            var bytes = await File.ReadAllBytesAsync(templatePath, cancellationToken);
-            return (bytes, TemplateFileName);
+            return;
         }
 
-        return (GenerateTemplate(), TemplateFileName);
+        var headerMap = BuildHeaderMap(worksheet);
+        var firstRow = GetDataRows(worksheet).FirstOrDefault();
+        if (firstRow == null)
+        {
+            return;
+        }
+
+        var buildingName = GetString(firstRow, headerMap, "BuildingName");
+        if (!string.IsNullOrWhiteSpace(buildingName))
+        {
+            building.BuildingName = buildingName.Trim();
+        }
+
+        building.Address = NullIfEmpty(GetString(firstRow, headerMap, "Address")) ?? building.Address;
+        building.Description = NullIfEmpty(GetString(firstRow, headerMap, "Description"));
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<int> ImportRoomsAsync(
@@ -340,7 +466,12 @@ public class ExcelImportService : Interfaces.IExcelImportService
             tenant.Email = NullIfEmpty(email);
             tenant.CCCD = NullIfEmpty(cccd);
             tenant.Address = NullIfEmpty(GetString(row, headerMap, "Address"));
+            tenant.DateOfBirth = GetNullableDate(row, headerMap, "DateOfBirth");
+            tenant.Gender = NullIfEmpty(GetString(row, headerMap, "Gender"));
+            tenant.Occupation = NullIfEmpty(GetString(row, headerMap, "Occupation"));
+            tenant.Workplace = NullIfEmpty(GetString(row, headerMap, "Workplace"));
             tenant.MoveInDate = GetNullableDate(row, headerMap, "MoveInDate");
+            tenant.MoveOutDate = GetNullableDate(row, headerMap, "MoveOutDate");
             tenant.IsActive = NormalizeTenantStatus(GetString(row, headerMap, "Status"));
             tenant.Note = NullIfEmpty(GetString(row, headerMap, "Note"));
             tenant.UpdatedAt = DateTime.UtcNow;
@@ -409,6 +540,326 @@ public class ExcelImportService : Interfaces.IExcelImportService
 
         await _excelImportRepository.SaveChangesAsync(cancellationToken);
         return imported;
+    }
+
+    private async Task<int> ImportContractsAsync(
+        IXLWorksheet? worksheet,
+        Dictionary<string, Room> roomsByName,
+        List<Tenant> tenants,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        if (worksheet == null)
+        {
+            return 0;
+        }
+
+        var headerMap = BuildHeaderMap(worksheet);
+        var imported = 0;
+
+        foreach (var row in GetDataRows(worksheet))
+        {
+            var roomName = GetString(row, headerMap, "RoomName");
+            var tenantName = GetString(row, headerMap, "FullName");
+
+            if (string.IsNullOrWhiteSpace(roomName) || string.IsNullOrWhiteSpace(tenantName))
+            {
+                continue;
+            }
+
+            if (!roomsByName.TryGetValue(NormalizeKey(roomName), out var room))
+            {
+                warnings.Add($"Khong tim thay phong '{roomName}' de nhap hop dong.");
+                continue;
+            }
+
+            var tenant = FindTenant(tenants, tenantName);
+            if (tenant == null)
+            {
+                warnings.Add($"Khong tim thay khach '{tenantName}' de nhap hop dong phong '{roomName}'.");
+                continue;
+            }
+
+            var startDate = GetNullableDate(row, headerMap, "ContractStartDate") ?? DateTime.Today;
+            var endDate = GetNullableDate(row, headerMap, "ContractEndDate") ?? startDate.AddMonths(12);
+            var contract = await _excelImportRepository.GetActiveContractAsync(room.RoomId, tenant.TenantId, cancellationToken);
+
+            if (contract == null)
+            {
+                contract = new Contract
+                {
+                    RoomId = room.RoomId,
+                    TenantId = tenant.TenantId,
+                };
+                await _excelImportRepository.AddContractAsync(contract, cancellationToken);
+                imported++;
+            }
+
+            contract.StartDate = startDate;
+            contract.EndDate = endDate;
+            contract.RentPrice = GetDecimal(row, headerMap, "RentPrice");
+            contract.Deposit = GetDecimal(row, headerMap, "Deposit");
+            contract.PaymentCycle = NullIfEmpty(GetString(row, headerMap, "BillingCycle")) ?? "Monthly";
+            contract.DepositStatus = NullIfEmpty(GetString(row, headerMap, "DepositStatus")) ?? contract.DepositStatus;
+            contract.Status = NullIfEmpty(GetString(row, headerMap, "Status")) ?? "Active";
+            contract.Note = NullIfEmpty(GetString(row, headerMap, "Note"));
+
+            room.Status = "occupied";
+            room.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
+        return imported;
+    }
+
+    private async Task<int> ImportVehiclesAsync(
+        IXLWorksheet? worksheet,
+        Dictionary<string, Room> roomsByName,
+        List<Tenant> tenants,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        if (worksheet == null)
+        {
+            return 0;
+        }
+
+        var headerMap = BuildHeaderMap(worksheet);
+        var imported = 0;
+
+        foreach (var row in GetDataRows(worksheet))
+        {
+            var plate = GetString(row, headerMap, "LicensePlateNumber");
+            if (string.IsNullOrWhiteSpace(plate))
+            {
+                continue;
+            }
+
+            var vehicle = await _excelImportRepository.GetVehicleByLicensePlateAsync(plate.Trim(), cancellationToken);
+            if (vehicle == null)
+            {
+                vehicle = new Vehicle { LicensePlateNumber = plate.Trim() };
+                await _excelImportRepository.AddVehicleAsync(vehicle, cancellationToken);
+                imported++;
+            }
+
+            var roomName = GetString(row, headerMap, "RoomName");
+            if (!string.IsNullOrWhiteSpace(roomName))
+            {
+                if (roomsByName.TryGetValue(NormalizeKey(roomName), out var room))
+                {
+                    vehicle.RoomId = room.RoomId;
+                }
+                else
+                {
+                    warnings.Add($"Khong tim thay phong '{roomName}' de nhap phuong tien '{plate}'.");
+                }
+            }
+
+            var tenantName = GetString(row, headerMap, "FullName");
+            if (!string.IsNullOrWhiteSpace(tenantName))
+            {
+                var tenant = FindTenant(tenants, tenantName);
+                if (tenant != null)
+                {
+                    vehicle.TenantId = tenant.TenantId;
+                }
+                else
+                {
+                    warnings.Add($"Khong tim thay khach '{tenantName}' de nhap phuong tien '{plate}'.");
+                }
+            }
+
+            vehicle.VehicleType = NullIfEmpty(GetString(row, headerMap, "VehicleType"));
+            vehicle.Brand = NullIfEmpty(GetString(row, headerMap, "Brand"));
+            vehicle.Color = NullIfEmpty(GetString(row, headerMap, "Color"));
+            vehicle.ParkingFee = GetDecimal(row, headerMap, "ParkingFee");
+            vehicle.Status = NullIfEmpty(GetString(row, headerMap, "Status")) ?? "active";
+            vehicle.RegistrationDate = GetNullableDate(row, headerMap, "RegistrationDate");
+            vehicle.Notes = NullIfEmpty(GetString(row, headerMap, "Notes"));
+            vehicle.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
+        return imported;
+    }
+
+    private async Task ImportDeviceCatalogsAsync(IXLWorksheet? worksheet, CancellationToken cancellationToken)
+    {
+        if (worksheet == null)
+        {
+            return;
+        }
+
+        var headerMap = BuildHeaderMap(worksheet);
+        foreach (var row in GetDataRows(worksheet))
+        {
+            var name = GetString(row, headerMap, "DeviceName");
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            var catalog = await _excelImportRepository.GetDeviceCatalogByNameAsync(name.Trim(), cancellationToken);
+            if (catalog == null)
+            {
+                catalog = new DeviceCatalog { Name = name.Trim() };
+                await _excelImportRepository.AddDeviceCatalogAsync(catalog, cancellationToken);
+            }
+
+            catalog.Icon = NullIfEmpty(GetString(row, headerMap, "Icon"));
+        }
+
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<int> ImportDevicesAsync(
+        IXLWorksheet? worksheet,
+        Dictionary<string, Room> roomsByName,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        if (worksheet == null)
+        {
+            return 0;
+        }
+
+        var headerMap = BuildHeaderMap(worksheet);
+        var imported = 0;
+
+        foreach (var row in GetDataRows(worksheet))
+        {
+            var roomName = GetString(row, headerMap, "RoomName");
+            var deviceName = GetString(row, headerMap, "DeviceName");
+            if (string.IsNullOrWhiteSpace(roomName) || string.IsNullOrWhiteSpace(deviceName))
+            {
+                continue;
+            }
+
+            if (!roomsByName.TryGetValue(NormalizeKey(roomName), out var room))
+            {
+                warnings.Add($"Khong tim thay phong '{roomName}' de nhap thiet bi '{deviceName}'.");
+                continue;
+            }
+
+            var device = await _excelImportRepository.GetDeviceAsync(room.RoomId, deviceName.Trim(), cancellationToken);
+            if (device == null)
+            {
+                device = new Device
+                {
+                    RoomId = room.RoomId,
+                    DeviceName = deviceName.Trim(),
+                };
+                await _excelImportRepository.AddDeviceAsync(device, cancellationToken);
+                imported++;
+            }
+
+            var catalogName = GetString(row, headerMap, "DeviceCatalogName");
+            if (!string.IsNullOrWhiteSpace(catalogName))
+            {
+                var catalog = await _excelImportRepository.GetDeviceCatalogByNameAsync(catalogName.Trim(), cancellationToken);
+                if (catalog == null)
+                {
+                    catalog = new DeviceCatalog { Name = catalogName.Trim() };
+                    await _excelImportRepository.AddDeviceCatalogAsync(catalog, cancellationToken);
+                    await _excelImportRepository.SaveChangesAsync(cancellationToken);
+                }
+
+                device.DeviceCatalogId = catalog.DeviceCatalogId;
+            }
+
+            device.Quantity = GetNullableInt(row, headerMap, "Quantity") ?? 1;
+            device.Status = NullIfEmpty(GetString(row, headerMap, "Status")) ?? "Working";
+            device.ImageUrl = NullIfEmpty(GetString(row, headerMap, "ImageUrl"));
+        }
+
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
+        return imported;
+    }
+
+    private async Task<int> ImportServicesAsync(IXLWorksheet? worksheet, CancellationToken cancellationToken)
+    {
+        if (worksheet == null)
+        {
+            return 0;
+        }
+
+        var headerMap = BuildHeaderMap(worksheet);
+        var imported = 0;
+
+        foreach (var row in GetDataRows(worksheet))
+        {
+            var serviceName = GetString(row, headerMap, "ServiceName");
+            if (string.IsNullOrWhiteSpace(serviceName))
+            {
+                continue;
+            }
+
+            var service = await _excelImportRepository.GetServiceByNameAsync(serviceName.Trim(), cancellationToken);
+            if (service == null)
+            {
+                service = new Service { ServiceName = serviceName.Trim() };
+                await _excelImportRepository.AddServiceAsync(service, cancellationToken);
+                imported++;
+            }
+
+            service.UnitPrice = GetDecimal(row, headerMap, "UnitPrice");
+            service.BillingCycle = NullIfEmpty(GetString(row, headerMap, "BillingCycle")) ?? "Monthly";
+            service.Unit = NullIfEmpty(GetString(row, headerMap, "Unit"));
+            service.Icon = NullIfEmpty(GetString(row, headerMap, "Icon"));
+        }
+
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
+        return imported;
+    }
+
+    private async Task ImportRoomServicesAsync(
+        IXLWorksheet? worksheet,
+        Dictionary<string, Room> roomsByName,
+        List<string> warnings,
+        CancellationToken cancellationToken)
+    {
+        if (worksheet == null)
+        {
+            return;
+        }
+
+        var headerMap = BuildHeaderMap(worksheet);
+        foreach (var row in GetDataRows(worksheet))
+        {
+            var roomName = GetString(row, headerMap, "RoomName");
+            var serviceName = GetString(row, headerMap, "ServiceName");
+            if (string.IsNullOrWhiteSpace(roomName) || string.IsNullOrWhiteSpace(serviceName))
+            {
+                continue;
+            }
+
+            if (!roomsByName.TryGetValue(NormalizeKey(roomName), out var room))
+            {
+                warnings.Add($"Khong tim thay phong '{roomName}' de gan dich vu '{serviceName}'.");
+                continue;
+            }
+
+            var service = await _excelImportRepository.GetServiceByNameAsync(serviceName.Trim(), cancellationToken);
+            if (service == null)
+            {
+                service = new Service { ServiceName = serviceName.Trim(), BillingCycle = "Monthly" };
+                await _excelImportRepository.AddServiceAsync(service, cancellationToken);
+                await _excelImportRepository.SaveChangesAsync(cancellationToken);
+            }
+
+            var roomService = await _excelImportRepository.GetRoomServiceAsync(room.RoomId, service.ServiceId, cancellationToken);
+            if (roomService == null)
+            {
+                await _excelImportRepository.AddRoomServiceAsync(new RoomService
+                {
+                    RoomId = room.RoomId,
+                    ServiceId = service.ServiceId,
+                }, cancellationToken);
+            }
+        }
+
+        await _excelImportRepository.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<int> ImportInvoicesAsync(
@@ -525,22 +976,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
             return owner;
         }
 
-        owner = new User
-        {
-            RoleId = ownerRole.RoleId,
-            FullName = "Chủ trọ nhập Excel",
-            Email = "excel-owner@local.test",
-            PhoneNumber = "0999999999",
-            Address = "Dữ liệu khởi tạo từ Excel",
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-        };
-        owner.PasswordHash = _passwordHasher.HashPassword(owner, "Owner@123");
-
-        await _excelImportRepository.AddUserAsync(owner, cancellationToken);
-        await _excelImportRepository.SaveChangesAsync(cancellationToken);
-        return owner;
+        throw new InvalidOperationException("Vui lòng tạo tài khoản chủ trọ trước khi nhập Excel.");
     }
 
     private async Task<Building> EnsureDefaultBuildingAsync(User owner, CancellationToken cancellationToken)
@@ -551,24 +987,46 @@ public class ExcelImportService : Interfaces.IExcelImportService
             return building;
         }
 
-        building = new Building
-        {
-            UserId = owner.UserId,
-            BuildingName = "Khu trọ nhập Excel",
-            Address = "Chưa cập nhật địa chỉ",
-            Description = "Tự tạo khi nhập dữ liệu Excel",
-            CreatedAt = DateTime.UtcNow,
-        };
+        throw new InvalidOperationException("Vui lòng tạo tòa nhà trước khi nhập Excel.");
+    }
 
-        await _excelImportRepository.AddBuildingAsync(building, cancellationToken);
-        await _excelImportRepository.SaveChangesAsync(cancellationToken);
-        return building;
+    private static Tenant? FindTenant(IEnumerable<Tenant> tenants, string fullName)
+    {
+        var normalizedName = NormalizeKey(fullName);
+        return tenants.FirstOrDefault(tenant => NormalizeKey(tenant.FullName) == normalizedName);
     }
 
     private static IXLWorksheet? FindWorksheet(XLWorkbook workbook, params string[] possibleNames)
     {
+        var possibleKeys = possibleNames
+            .Select(NormalizeKey)
+            .SelectMany(ExpandWorksheetAliases)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         return workbook.Worksheets.FirstOrDefault(sheet =>
-            possibleNames.Any(name => NormalizeKey(sheet.Name) == NormalizeKey(name)));
+            possibleKeys.Contains(NormalizeKey(sheet.Name)));
+    }
+
+    private static IEnumerable<string> ExpandWorksheetAliases(string normalizedName)
+    {
+        yield return normalizedName;
+
+        foreach (var alias in normalizedName switch
+        {
+            "rooms" or "phong" => ["phongtro"],
+            "invoices" or "hoadon" => ["hoadon"],
+            "contracts" or "hopdong" => ["hopdong"],
+            "vehicles" or "phuongtien" => ["phuongtien"],
+            "devices" or "thietbiphong" => ["thietbiphong"],
+            "services" or "dichvu" => ["dichvu"],
+            "roomservices" or "dichvuphong" => ["dichvuphong"],
+            "devicecatalogs" or "danhmucthietbi" => ["danhmucthietbi"],
+            "buildings" or "toanha" => ["toanha"],
+            _ => Array.Empty<string>(),
+        })
+        {
+            yield return alias;
+        }
     }
 
     private static Dictionary<string, int> BuildHeaderMap(IXLWorksheet worksheet)
@@ -769,12 +1227,6 @@ public class ExcelImportService : Interfaces.IExcelImportService
     private static string? NullIfEmpty(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
-
-    private string GetTemplateFilePath()
-    {
-        var webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-        return Path.Combine(webRoot, "uploads", TemplateDirectoryName, TemplateFileName);
     }
 
     private static void AddHeader(IXLWorksheet worksheet, IReadOnlyList<string> headers)

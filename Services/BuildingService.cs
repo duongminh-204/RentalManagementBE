@@ -14,9 +14,9 @@ public class BuildingService : IBuildingService
         _repository = repository;
     }
 
-    public async Task<IEnumerable<BuildingDto>> GetAllBuildingsAsync()
+    public async Task<IEnumerable<BuildingDto>> GetAllBuildingsAsync(int? ownerUserId = null)
     {
-        var buildings = await _repository.GetAllAsync();
+        var buildings = await _repository.GetAllAsync(ownerUserId);
         return buildings.Select(MapToDto);
     }
 

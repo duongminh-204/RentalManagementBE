@@ -14,9 +14,16 @@ public class BuildingRepository : IBuildingRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<Building>> GetAllAsync()
+    public async Task<IEnumerable<Building>> GetAllAsync(int? ownerUserId = null)
     {
-        return await _context.Buildings.OrderBy(b => b.BuildingName).ToListAsync();
+        var query = _context.Buildings.AsNoTracking().AsQueryable();
+
+        if (ownerUserId.HasValue)
+        {
+            query = query.Where(building => building.UserId == ownerUserId.Value);
+        }
+
+        return await query.OrderBy(b => b.BuildingName).ToListAsync();
     }
 
     public async Task<Building?> GetByIdAsync(int id)

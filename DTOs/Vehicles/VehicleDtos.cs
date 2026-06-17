@@ -16,6 +16,8 @@ public class VehicleDto
     public string? TenantName { get; set; }
     public int? RoomId { get; set; }
     public string? RoomNumber { get; set; }
+    public int? BuildingId { get; set; }
+    public string? BuildingName { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

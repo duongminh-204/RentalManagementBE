@@ -15,12 +15,14 @@ namespace Backend.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<Room>> GetAllAsync(int? buildingId = null)
+        public async Task<IEnumerable<Room>> GetAllAsync(int? buildingId = null, int? ownerUserId = null)
         {
             var query = _context.Rooms.Include(r => r.Building).AsQueryable();
 
             if (buildingId.HasValue)
                 query = query.Where(r => r.BuildingId == buildingId.Value);
+            if (ownerUserId.HasValue)
+                query = query.Where(r => r.Building.UserId == ownerUserId.Value);
 
             return await query.ToListAsync();
         }
@@ -31,6 +33,7 @@ namespace Backend.Repositories
                 .Include(r => r.Building)
                 .Include(r => r.RoomImages)
                 .Include(r => r.Devices)
+                    .ThenInclude(d => d.DeviceCatalog)
                 .Include(r => r.RoomServices)
                     .ThenInclude(rs => rs.Service)
                 .Include(r => r.Contracts)
@@ -44,11 +47,14 @@ namespace Backend.Repositories
                 .FirstOrDefaultAsync(r => r.RoomName == roomNumber && r.BuildingId == buildingId);
         }
 
-        public async Task<IEnumerable<Room>> GetByStatusAsync(string status)
+        public async Task<IEnumerable<Room>> GetByStatusAsync(string status, int? ownerUserId = null)
         {
-            return await _context.Rooms
-                .Where(r => r.Status == status)
-                .ToListAsync();
+            var query = _context.Rooms.Include(r => r.Building).Where(r => r.Status == status);
+
+            if (ownerUserId.HasValue)
+                query = query.Where(r => r.Building.UserId == ownerUserId.Value);
+
+            return await query.ToListAsync();
         }
 
         public async Task<Room> AddAsync(Room room)
@@ -85,11 +91,13 @@ namespace Backend.Repositories
             return await _context.Buildings.AnyAsync(b => b.BuildingId == buildingId);
         }
 
-        public async Task<RoomStatsDto> GetStatsAsync(int? buildingId = null)
+        public async Task<RoomStatsDto> GetStatsAsync(int? buildingId = null, int? ownerUserId = null)
         {
             var query = _context.Rooms.AsQueryable();
             if (buildingId.HasValue)
                 query = query.Where(r => r.BuildingId == buildingId.Value);
+            if (ownerUserId.HasValue)
+                query = query.Where(r => r.Building.UserId == ownerUserId.Value);
 
             var list = await query.ToListAsync();
 

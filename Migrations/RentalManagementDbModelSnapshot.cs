@@ -78,11 +78,50 @@ namespace RentalManagementBE.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(0m);
 
+                    b.Property<decimal>("DepositDeductionAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("DepositHistory")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("DepositRefundAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<string>("DepositStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("Holding");
+
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Note")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ParentContractId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentCycle")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("Monthly");
+
+                    b.Property<string>("RenewalHistory")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("RentPrice")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
 
                     b.Property<int>("RoomId")
                         .HasColumnType("int");
@@ -99,7 +138,17 @@ namespace RentalManagementBE.Migrations
                     b.Property<int>("TenantId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("TerminatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TerminationReason")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("ContractId");
+
+                    b.HasIndex("EndDate");
+
+                    b.HasIndex("ParentContractId");
 
                     b.HasIndex("RoomId");
 
@@ -118,11 +167,14 @@ namespace RentalManagementBE.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DeviceId"));
 
+                    b.Property<int?>("DeviceCatalogId")
+                        .HasColumnType("int");
+
                     b.Property<string>("DeviceName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Note")
+                    b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Quantity")
@@ -141,9 +193,36 @@ namespace RentalManagementBE.Migrations
 
                     b.HasKey("DeviceId");
 
+                    b.HasIndex("DeviceCatalogId");
+
                     b.HasIndex("RoomId");
 
                     b.ToTable("Devices");
+                });
+
+            modelBuilder.Entity("Backend.Entities.DeviceCatalog", b =>
+                {
+                    b.Property<int>("DeviceCatalogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DeviceCatalogId"));
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("DeviceCatalogId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("DeviceCatalogs");
                 });
 
             modelBuilder.Entity("Backend.Entities.Expense", b =>
@@ -560,11 +639,6 @@ namespace RentalManagementBE.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoomServiceId"));
 
-                    b.Property<int>("Quantity")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1);
-
                     b.Property<int>("RoomId")
                         .HasColumnType("int");
 
@@ -588,17 +662,21 @@ namespace RentalManagementBE.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ServiceId"));
 
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
+                    b.Property<string>("BillingCycle")
+                        .IsRequired()
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Monthly");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("ServiceName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Unit")
                         .HasColumnType("nvarchar(max)");
@@ -608,6 +686,9 @@ namespace RentalManagementBE.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("ServiceId");
+
+                    b.HasIndex("ServiceName")
+                        .IsUnique();
 
                     b.ToTable("Services");
                 });
@@ -915,6 +996,11 @@ namespace RentalManagementBE.Migrations
 
             modelBuilder.Entity("Backend.Entities.Contract", b =>
                 {
+                    b.HasOne("Backend.Entities.Contract", "ParentContract")
+                        .WithMany()
+                        .HasForeignKey("ParentContractId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Backend.Entities.Room", "Room")
                         .WithMany("Contracts")
                         .HasForeignKey("RoomId")
@@ -927,6 +1013,8 @@ namespace RentalManagementBE.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("ParentContract");
+
                     b.Navigation("Room");
 
                     b.Navigation("Tenant");
@@ -934,11 +1022,18 @@ namespace RentalManagementBE.Migrations
 
             modelBuilder.Entity("Backend.Entities.Device", b =>
                 {
+                    b.HasOne("Backend.Entities.DeviceCatalog", "DeviceCatalog")
+                        .WithMany("Devices")
+                        .HasForeignKey("DeviceCatalogId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Backend.Entities.Room", "Room")
                         .WithMany("Devices")
                         .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("DeviceCatalog");
 
                     b.Navigation("Room");
                 });
@@ -1102,6 +1197,11 @@ namespace RentalManagementBE.Migrations
                     b.Navigation("Expenses");
 
                     b.Navigation("Rooms");
+                });
+
+            modelBuilder.Entity("Backend.Entities.DeviceCatalog", b =>
+                {
+                    b.Navigation("Devices");
                 });
 
             modelBuilder.Entity("Backend.Entities.Invoice", b =>

@@ -1,6 +1,7 @@
 using Backend.Data;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Repositories;
@@ -14,11 +15,19 @@ public class RoomManagementRepository : IRoomManagementRepository
         _db = db;
     }
 
-    public async Task<List<Service>> GetActiveServicesOrderedAsync(CancellationToken cancellationToken = default) =>
-        await _db.Services
-            .Where(s => s.IsActive)
-            .OrderBy(s => s.ServiceName)
-            .ToListAsync(cancellationToken);
+    public async Task<List<Service>> GetActiveServicesOrderedAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _db.Services
+                .OrderBy(s => s.ServiceName)
+                .ToListAsync(cancellationToken);
+        }
+        catch (SqlException ex) when (IsMissingSchemaError(ex))
+        {
+            return [];
+        }
+    }
 
     public async Task<List<Tenant>> GetActiveTenantsOrderedAsync(CancellationToken cancellationToken = default) =>
         await _db.Tenants
@@ -35,6 +44,36 @@ public class RoomManagementRepository : IRoomManagementRepository
         await _db.RoomImages.FirstOrDefaultAsync(i => i.RoomImageId == imageId && i.RoomId == roomId, cancellationToken);
 
     public void RemoveRoomImage(RoomImage image) => _db.RoomImages.Remove(image);
+
+    public void AddService(Service service) => _db.Services.Add(service);
+
+    public void RemoveService(Service service) => _db.Services.Remove(service);
+
+    public async Task<List<DeviceCatalog>> GetActiveDeviceCatalogsOrderedAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _db.DeviceCatalogs
+                .OrderBy(d => d.Name)
+                .ToListAsync(cancellationToken);
+        }
+        catch (SqlException ex) when (IsMissingSchemaError(ex))
+        {
+            return [];
+        }
+    }
+
+    public void AddDeviceCatalog(DeviceCatalog catalog) => _db.DeviceCatalogs.Add(catalog);
+
+    public async Task<DeviceCatalog?> GetDeviceCatalogByIdAsync(int deviceCatalogId, CancellationToken cancellationToken = default) =>
+        await _db.DeviceCatalogs.FirstOrDefaultAsync(d => d.DeviceCatalogId == deviceCatalogId, cancellationToken);
+
+    public void RemoveDeviceCatalog(DeviceCatalog catalog) => _db.DeviceCatalogs.Remove(catalog);
+
+    public async Task<bool> DeviceCatalogNameExistsAsync(string name, int? excludeId = null, CancellationToken cancellationToken = default) =>
+        await _db.DeviceCatalogs.AnyAsync(
+            d => d.Name == name && (excludeId == null || d.DeviceCatalogId != excludeId.Value),
+            cancellationToken);
 
     public void AddDevice(Device device) => _db.Devices.Add(device);
 
@@ -79,4 +118,7 @@ public class RoomManagementRepository : IRoomManagementRepository
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _db.SaveChangesAsync(cancellationToken);
+
+    private static bool IsMissingSchemaError(SqlException ex) =>
+        ex.Errors.Cast<SqlError>().Any(error => error.Number is 207 or 208);
 }

@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: rental-management-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      # Runtime
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      # Database (Somee) — điền trên Render Dashboard
+      - key: ConnectionStrings__SomeeConnection
+        sync: false
+
+      # JWT — nên generate secret mới cho production
+      - key: Jwt__Key
+        sync: false
+      - key: Jwt__Issuer
+        value: RentalManagementAPI
+      - key: Jwt__Audience
+        value: RentalManagementClient
+      - key: Jwt__ExpiryInDays
+        value: "7"
+
+      # File storage (Azure Blob)
+      - key: FileStorage__Provider
+        value: Azure
+      - key: AzureStorage__ConnectionString
+        sync: false
+      - key: AzureStorage__ContainerName
+        value: rental-uploads
+
+      # Google OAuth
+      - key: Google__ClientId
+        value: 730567914436-gosvf2jho38fh173a7hrin2kshfvb8fg.apps.googleusercontent.com
+
+      # CORS — URL frontend production (phân cách bằng dấu phẩy)
+      - key: Cors__AllowedOrigins
+        sync: false
