@@ -43,6 +43,8 @@ public class BuildingService : IBuildingService
             BuildingName = dto.BuildingName.Trim(),
             Address = dto.Address.Trim(),
             Description = dto.Description?.Trim(),
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude,
             UserId = userId.Value
         };
 
@@ -69,6 +71,8 @@ public class BuildingService : IBuildingService
         building.BuildingName = dto.BuildingName.Trim();
         building.Address = dto.Address.Trim();
         building.Description = dto.Description?.Trim();
+        building.Latitude = dto.Latitude;
+        building.Longitude = dto.Longitude;
 
         if (dto.UserId.HasValue)
             building.UserId = dto.UserId.Value;
@@ -93,6 +97,8 @@ public class BuildingService : IBuildingService
             BuildingName = building.BuildingName,
             Address = building.Address,
             Description = building.Description,
+            Latitude = building.Latitude,
+            Longitude = building.Longitude,
             UserId = building.UserId,
             CreatedAt = building.CreatedAt
         };

@@ -108,6 +108,14 @@ public class RentalManagementDb : DbContext
         // Buildings
         // =========================
         modelBuilder.Entity<Building>()
+            .Property(x => x.Latitude)
+            .HasColumnType("float");
+
+        modelBuilder.Entity<Building>()
+            .Property(x => x.Longitude)
+            .HasColumnType("float");
+
+        modelBuilder.Entity<Building>()
             .Property(x => x.CreatedAt)
             .HasDefaultValueSql("GETDATE()");
 
