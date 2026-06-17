@@ -36,12 +36,6 @@ public class VehicleRepository : IVehicleRepository
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _db.SaveChangesAsync(cancellationToken);
 
-    public async Task<List<Vehicle>> ListActiveForParkingSummaryAsync(CancellationToken cancellationToken = default) =>
-        await _db.Vehicles
-            .AsNoTracking()
-            .Where(v => v.Status == "active")
-            .ToListAsync(cancellationToken);
-
     public async Task<bool> TenantExistsAsync(int tenantId, CancellationToken cancellationToken = default) =>
         await _db.Tenants.AnyAsync(t => t.TenantId == tenantId, cancellationToken);
 

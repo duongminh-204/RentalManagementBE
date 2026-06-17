@@ -10,7 +10,6 @@ public interface IVehicleRepository
     void Add(Vehicle vehicle);
     void Remove(Vehicle vehicle);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-    Task<List<Vehicle>> ListActiveForParkingSummaryAsync(CancellationToken cancellationToken = default);
     Task<bool> TenantExistsAsync(int tenantId, CancellationToken cancellationToken = default);
     Task<bool> RoomExistsAsync(int roomId, CancellationToken cancellationToken = default);
 }
