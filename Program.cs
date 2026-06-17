@@ -61,10 +61,13 @@ builder.Services.AddDbContext<RentalManagementDb>(options =>
         ? "SomeeConnection"
         : "LocalConnection";
 
-    var connectionString = builder.Configuration.GetConnectionString(connectionName);
+    var connectionString = builder.Configuration.GetConnectionString(connectionName)
+        ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
     if (string.IsNullOrWhiteSpace(connectionString))
-        throw new InvalidOperationException($"Connection string '{connectionName}' is missing.");
+        throw new InvalidOperationException(
+            $"Connection string '{connectionName}' is missing. " +
+            "Copy appsettings.example.json to appsettings.json or set ConnectionStrings__LocalConnection.");
 
     options.UseSqlServer(connectionString);
 });
