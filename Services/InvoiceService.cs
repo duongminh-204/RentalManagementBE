@@ -229,6 +229,13 @@ public class InvoiceService : IInvoiceService
         return results;
     }
 
+    public async Task DeleteInvoiceAsync(int invoiceId, int? ownerUserId = null)
+    {
+        var deleted = await _invoiceRepository.DeleteInvoiceAsync(invoiceId, ownerUserId);
+        if (!deleted)
+            throw new KeyNotFoundException("Không tìm thấy hóa đơn.");
+    }
+
     private static void ValidateUsage(CreateInvoiceFromUtilityUsageDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.MonthYear))

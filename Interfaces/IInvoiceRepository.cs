@@ -16,5 +16,6 @@ public interface IInvoiceRepository
     Task UpdateUtilityUsageAsync(UtilityUsage usage);
     Task AddInvoiceAsync(Invoice invoice);
     Task UpdateInvoiceAsync(Invoice invoice);
+    Task<bool> DeleteInvoiceAsync(int invoiceId, int? ownerUserId = null);
     Task SaveChangesAsync();
 }

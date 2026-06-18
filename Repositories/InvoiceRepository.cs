@@ -158,6 +158,17 @@ public class InvoiceRepository : IInvoiceRepository
         return Task.CompletedTask;
     }
 
+    public async Task<bool> DeleteInvoiceAsync(int invoiceId, int? ownerUserId = null)
+    {
+        var invoice = await GetInvoiceByIdAsync(invoiceId, ownerUserId);
+        if (invoice == null)
+            return false;
+
+        _context.Invoices.Remove(invoice);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();

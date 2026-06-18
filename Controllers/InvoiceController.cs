@@ -70,6 +70,22 @@ public class InvoiceController : ControllerBase
         return Ok(invoices);
     }
 
+    [HttpDelete("{invoiceId}")]
+    public async Task<IActionResult> DeleteInvoice(int invoiceId)
+    {
+        if (!TryGetUserId(out var userId)) return Unauthorized();
+
+        try
+        {
+            await _invoiceService.DeleteInvoiceAsync(invoiceId, userId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     private bool TryGetUserId(out int userId)
     {
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);

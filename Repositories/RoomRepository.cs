@@ -74,11 +74,24 @@ namespace Backend.Repositories
         public async Task DeleteAsync(int id)
         {
             var room = await _context.Rooms.FindAsync(id);
-            if (room != null)
+            if (room == null) return;
+
+            var invoices = await _context.Invoices
+                .Where(i => i.RoomId == id)
+                .ToListAsync();
+            _context.Invoices.RemoveRange(invoices);
+
+            var contracts = await _context.Contracts
+                .Where(c => c.RoomId == id)
+                .ToListAsync();
+            foreach (var contract in contracts)
             {
-                _context.Rooms.Remove(room);
-                await _context.SaveChangesAsync();
+                contract.ParentContractId = null;
             }
+            _context.Contracts.RemoveRange(contracts);
+
+            _context.Rooms.Remove(room);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<bool> ExistsAsync(int id)
