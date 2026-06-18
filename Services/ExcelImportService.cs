@@ -6,6 +6,7 @@ using Backend.Repositories.Interfaces;
 using Backend.Services.Interfaces;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Services;
 
@@ -104,84 +105,104 @@ public class ExcelImportService : Interfaces.IExcelImportService
             throw new InvalidOperationException("Hiện tại hệ thống chỉ hỗ trợ file .xlsx.");
         }
 
-        using var stream = file.OpenReadStream();
-        using var workbook = new XLWorkbook(stream);
+        try
+        {
+            using var stream = file.OpenReadStream();
+            using var workbook = new XLWorkbook(stream);
+            ValidateImportWorkbook(workbook);
 
-        await using var transaction = await _excelImportRepository.BeginTransactionAsync(cancellationToken);
+            await using var transaction = await _excelImportRepository.BeginTransactionAsync(cancellationToken);
 
-        var result = new ExcelImportResultDto();
-        var owner = await EnsureDefaultOwnerAsync(cancellationToken);
-        var building = await EnsureDefaultBuildingAsync(owner, cancellationToken);
+            var result = new ExcelImportResultDto();
+            var owner = await EnsureDefaultOwnerAsync(cancellationToken);
+            var building = await EnsureDefaultBuildingAsync(owner, cancellationToken);
 
-        await ImportBuildingAsync(
-            FindWorksheet(workbook, "Toa nha", "Buildings"),
-            building,
-            cancellationToken);
+            await ImportBuildingAsync(
+                FindWorksheet(workbook, "Toa nha", "Buildings"),
+                building,
+                cancellationToken);
 
-        var roomsByName = await _excelImportRepository.GetRoomsByBuildingAsync(building.BuildingId, NormalizeKey, cancellationToken);
+            var roomsByName = await _excelImportRepository.GetRoomsByBuildingAsync(building.BuildingId, NormalizeKey, cancellationToken);
 
-        result.RoomsImported = await ImportRoomsAsync(
-            FindWorksheet(workbook, "Phòng", "Phong", "Rooms"),
-            building.BuildingId,
-            roomsByName,
-            cancellationToken);
+            result.RoomsImported = await ImportRoomsAsync(
+                FindWorksheet(workbook, "Phòng", "Phong", "Rooms"),
+                building.BuildingId,
+                roomsByName,
+                cancellationToken);
 
-        result.TenantsImported = await ImportTenantsAsync(
-            FindWorksheet(workbook, "Khách thuê", "KhachThue", "Tenants"),
-            roomsByName,
-            result.Warnings,
-            result,
-            cancellationToken);
+            result.TenantsImported = await ImportTenantsAsync(
+                FindWorksheet(workbook, "Khách thuê", "KhachThue", "Tenants"),
+                roomsByName,
+                result.Warnings,
+                result,
+                cancellationToken);
 
-        var tenants = await _excelImportRepository.GetTenantsWithContractsAsync(cancellationToken);
+            var tenants = await _excelImportRepository.GetTenantsWithContractsAsync(cancellationToken);
 
-        result.ContractsImported += await ImportContractsAsync(
-            FindWorksheet(workbook, "Hop dong", "Contracts"),
-            roomsByName,
-            tenants,
-            result.Warnings,
-            cancellationToken);
+            result.ContractsImported += await ImportContractsAsync(
+                FindWorksheet(workbook, "Hop dong", "Contracts"),
+                roomsByName,
+                tenants,
+                result.Warnings,
+                cancellationToken);
 
-        result.VehiclesImported = await ImportVehiclesAsync(
-            FindWorksheet(workbook, "Phuong tien", "Vehicles"),
-            roomsByName,
-            tenants,
-            result.Warnings,
-            cancellationToken);
+            result.VehiclesImported = await ImportVehiclesAsync(
+                FindWorksheet(workbook, "Phuong tien", "Vehicles"),
+                roomsByName,
+                tenants,
+                result.Warnings,
+                cancellationToken);
 
-        await ImportDeviceCatalogsAsync(
-            FindWorksheet(workbook, "Danh muc thiet bi", "DeviceCatalogs"),
-            cancellationToken);
+            await ImportDeviceCatalogsAsync(
+                FindWorksheet(workbook, "Danh muc thiet bi", "DeviceCatalogs"),
+                cancellationToken);
 
-        result.DevicesImported = await ImportDevicesAsync(
-            FindWorksheet(workbook, "Thiet bi phong", "Devices"),
-            roomsByName,
-            result.Warnings,
-            cancellationToken);
+            result.DevicesImported = await ImportDevicesAsync(
+                FindWorksheet(workbook, "Thiet bi phong", "Devices"),
+                roomsByName,
+                result.Warnings,
+                cancellationToken);
 
-        result.ServicesImported = await ImportServicesAsync(
-            FindWorksheet(workbook, "Dich vu", "Services"),
-            cancellationToken);
+            result.ServicesImported = await ImportServicesAsync(
+                FindWorksheet(workbook, "Dich vu", "Services"),
+                cancellationToken);
 
-        await ImportRoomServicesAsync(
-            FindWorksheet(workbook, "Dich vu phong", "RoomServices"),
-            roomsByName,
-            result.Warnings,
-            cancellationToken);
+            await ImportRoomServicesAsync(
+                FindWorksheet(workbook, "Dich vu phong", "RoomServices"),
+                roomsByName,
+                result.Warnings,
+                cancellationToken);
 
-        result.InvoicesImported = await ImportInvoicesAsync(
-            FindWorksheet(workbook, "Hóa đơn", "HoaDon", "Invoices"),
-            owner.UserId,
-            roomsByName,
-            result.Warnings,
-            result,
-            cancellationToken);
+            result.InvoicesImported = await ImportInvoicesAsync(
+                FindWorksheet(workbook, "Hóa đơn", "HoaDon", "Invoices"),
+                owner.UserId,
+                roomsByName,
+                result.Warnings,
+                result,
+                cancellationToken);
 
-        await _excelImportRepository.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+            await _excelImportRepository.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
-        result.Message = "Đã nhập dữ liệu Excel thành công. Dashboard có thể làm mới để xem số liệu mới nhất.";
-        return result;
+            result.Message = "Đã nhập dữ liệu Excel thành công. Dashboard có thể làm mới để xem số liệu mới nhất.";
+            return result;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new InvalidOperationException(
+                $"Không thể lưu dữ liệu từ file Excel. Vui lòng kiểm tra dữ liệu trùng hoặc dữ liệu bắt buộc bị thiếu. Chi tiết: {GetInnermostMessage(ex)}",
+                ex);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new InvalidOperationException(
+                $"Không thể nhập file Excel. Vui lòng kiểm tra lại sheet, tiêu đề cột và dữ liệu trong mẫu file. Chi tiết: {GetInnermostMessage(ex)}",
+                ex);
+        }
     }
 
     public byte[] GenerateTemplate()
@@ -290,10 +311,7 @@ public class ExcelImportService : Interfaces.IExcelImportService
         await using var validationStream = file.OpenReadStream();
         using (var workbook = new XLWorkbook(validationStream))
         {
-            if (!workbook.Worksheets.Any())
-            {
-                throw new InvalidOperationException("File Excel không hợp lệ hoặc không có sheet dữ liệu.");
-            }
+            ValidateImportWorkbook(workbook);
         }
 
         await using var sourceStream = file.OpenReadStream();
@@ -1031,9 +1049,25 @@ public class ExcelImportService : Interfaces.IExcelImportService
 
     private static Dictionary<string, int> BuildHeaderMap(IXLWorksheet worksheet)
     {
-        return worksheet.Row(1)
-            .CellsUsed()
-            .ToDictionary(cell => NormalizeKey(cell.GetString()), cell => cell.Address.ColumnNumber);
+        var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var cell in worksheet.Row(1).CellsUsed())
+        {
+            var normalizedHeader = NormalizeKey(cell.GetString());
+            if (string.IsNullOrWhiteSpace(normalizedHeader))
+            {
+                continue;
+            }
+
+            if (headerMap.ContainsKey(normalizedHeader))
+            {
+                throw new InvalidOperationException($"Sheet '{worksheet.Name}' có tiêu đề cột bị trùng: '{cell.GetString()}'.");
+            }
+
+            headerMap[normalizedHeader] = cell.Address.ColumnNumber;
+        }
+
+        return headerMap;
     }
 
     private static IEnumerable<IXLRow> GetDataRows(IXLWorksheet worksheet)
@@ -1142,6 +1176,63 @@ public class ExcelImportService : Interfaces.IExcelImportService
 
         columnNumber = 0;
         return false;
+    }
+
+    private static void ValidateImportWorkbook(XLWorkbook workbook)
+    {
+        if (!workbook.Worksheets.Any())
+        {
+            throw new InvalidOperationException("File Excel không hợp lệ hoặc không có sheet dữ liệu.");
+        }
+
+        var recognizedSheets = new List<string>();
+
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Toa nha", "Buildings"), recognizedSheets, "BuildingName");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Phòng", "Phong", "Rooms"), recognizedSheets, "RoomName");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Khách thuê", "KhachThue", "Tenants"), recognizedSheets, "FullName");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Hop dong", "Contracts"), recognizedSheets, "RoomName", "FullName");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Phuong tien", "Vehicles"), recognizedSheets, "LicensePlateNumber");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Danh muc thiet bi", "DeviceCatalogs"), recognizedSheets, "DeviceName");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Thiet bi phong", "Devices"), recognizedSheets, "RoomName", "DeviceName");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Dich vu", "Services"), recognizedSheets, "ServiceName");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Dich vu phong", "RoomServices"), recognizedSheets, "RoomName", "ServiceName");
+        ValidateWorksheetHeaders(FindWorksheet(workbook, "Hóa đơn", "HoaDon", "Invoices"), recognizedSheets, "RoomName", "MonthYear");
+
+        if (recognizedSheets.Count == 0)
+        {
+            throw new InvalidOperationException("File Excel không có sheet nào đúng mẫu import. Vui lòng tải lại mẫu Excel hiện hành rồi nhập dữ liệu vào các sheet có sẵn.");
+        }
+    }
+
+    private static void ValidateWorksheetHeaders(IXLWorksheet? worksheet, ICollection<string> recognizedSheets, params string[] requiredColumns)
+    {
+        if (worksheet == null)
+        {
+            return;
+        }
+
+        recognizedSheets.Add(worksheet.Name);
+        var headerMap = BuildHeaderMap(worksheet);
+        var missingColumns = requiredColumns
+            .Where(column => !TryGetColumnNumber(headerMap, column, out _))
+            .ToList();
+
+        if (missingColumns.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Sheet '{worksheet.Name}' thiếu cột bắt buộc: {string.Join(", ", missingColumns)}. Vui lòng giữ nguyên hàng tiêu đề của mẫu Excel.");
+        }
+    }
+
+    private static string GetInnermostMessage(Exception exception)
+    {
+        var current = exception;
+        while (current.InnerException != null)
+        {
+            current = current.InnerException;
+        }
+
+        return current.Message;
     }
 
     private static string NormalizeRoomStatus(string? status)
