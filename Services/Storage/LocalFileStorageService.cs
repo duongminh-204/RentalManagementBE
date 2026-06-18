@@ -42,11 +42,12 @@ public class LocalFileStorageService : IFileStorageService
         return FileStorageHelper.ToPublicPath(folder, fileName);
     }
 
-    public async Task SaveBytesAsync(byte[] content, string folder, string fileName, CancellationToken cancellationToken = default)
+    public async Task<string> SaveBytesAsync(byte[] content, string folder, string fileName, CancellationToken cancellationToken = default)
     {
         var uploadsDir = Path.Combine(_webRoot, FileStorageHelper.UploadsPrefix, folder.Trim('/'));
         Directory.CreateDirectory(uploadsDir);
         await File.WriteAllBytesAsync(Path.Combine(uploadsDir, fileName), content, cancellationToken);
+        return FileStorageHelper.ToPublicPath(folder, fileName);
     }
 
     public async Task<byte[]?> ReadBytesAsync(string folder, string fileName, CancellationToken cancellationToken = default)

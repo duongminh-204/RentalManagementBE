@@ -135,8 +135,7 @@ public class RoomDecorService : IRoomDecorService
             ext = ".png";
 
         var fileName = $"decor_{Guid.NewGuid():N}{ext}";
-        await _fileStorage.SaveBytesAsync(imageBytes, "rooms", fileName, cancellationToken);
-        var imageUrl = $"/uploads/rooms/{fileName}";
+        var imageUrl = await _fileStorage.SaveBytesAsync(imageBytes, "rooms", fileName, cancellationToken);
 
         var result = new RoomDecorResultDto
         {

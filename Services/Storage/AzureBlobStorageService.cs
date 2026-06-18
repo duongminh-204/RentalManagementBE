@@ -59,7 +59,7 @@ public class AzureBlobStorageService : IFileStorageService
         return blob.Uri.ToString();
     }
 
-    public async Task SaveBytesAsync(byte[] content, string folder, string fileName, CancellationToken cancellationToken = default)
+    public async Task<string> SaveBytesAsync(byte[] content, string folder, string fileName, CancellationToken cancellationToken = default)
     {
         var blob = _container.GetBlobClient(FileStorageHelper.ToBlobName(folder, fileName));
         await using var stream = new MemoryStream(content);
@@ -68,6 +68,7 @@ public class AzureBlobStorageService : IFileStorageService
         {
             ContentType = FileStorageHelper.GetContentType(fileName)
         }, cancellationToken: cancellationToken);
+        return blob.Uri.ToString();
     }
 
     public async Task<byte[]?> ReadBytesAsync(string folder, string fileName, CancellationToken cancellationToken = default)

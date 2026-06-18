@@ -6,7 +6,7 @@ public interface IFileStorageService
 {
     Task<string> UploadFormFileAsync(IFormFile file, string folder, string fileName, CancellationToken cancellationToken = default);
     Task<string> UploadTextAsync(string content, string folder, string fileName, CancellationToken cancellationToken = default);
-    Task SaveBytesAsync(byte[] content, string folder, string fileName, CancellationToken cancellationToken = default);
+    Task<string> SaveBytesAsync(byte[] content, string folder, string fileName, CancellationToken cancellationToken = default);
     Task<byte[]?> ReadBytesAsync(string folder, string fileName, CancellationToken cancellationToken = default);
     Task<string> ReadTextAsync(string folder, string fileName, CancellationToken cancellationToken = default);
     Task EnsureTextFileAsync(string folder, string fileName, string defaultContent, CancellationToken cancellationToken = default);
