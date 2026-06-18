@@ -1,3 +1,4 @@
+using Backend.Configuration;
 using Backend.Data;
 using Backend.Entities;
 using Backend.Interfaces;
@@ -22,6 +23,17 @@ builder.Services.AddSwaggerGen(options =>
     options.CustomSchemaIds(type => type.ToString());
 });
 builder.Services.AddMemoryCache();
+
+// ====================== COMFYUI (AI DECOR) ======================
+builder.Services.Configure<ComfyUIOptions>(builder.Configuration.GetSection(ComfyUIOptions.SectionName));
+builder.Services.AddHttpClient<IComfyUIService, ComfyUIService>((sp, client) =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ComfyUIOptions>>().Value;
+    var baseUrl = (options.BaseUrl ?? "http://127.0.0.1:8188").TrimEnd('/') + "/";
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(Math.Max(options.PollTimeoutSeconds + 30, 120));
+});
+builder.Services.AddScoped<IRoomDecorService, RoomDecorService>();
 
 // ====================== CORS ======================
 var defaultCorsOrigins = new[]
