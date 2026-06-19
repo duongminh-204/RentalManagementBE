@@ -43,7 +43,9 @@ var defaultCorsOrigins = new[]
     "http://localhost:3000",
     "http://localhost:5000",
     "http://127.0.0.1:5173",
-    "http://127.0.0.1:5175"
+    "http://127.0.0.1:5175",
+    "https://www.rentalmanagement.site",
+    "https://rentalmanagement.site"
 };
 
 var configuredCorsOrigins = builder.Configuration["Cors:AllowedOrigins"]?
