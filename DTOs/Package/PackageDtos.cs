@@ -24,6 +24,12 @@ public class OwnerSubscriptionDto
     public List<string> Features { get; set; } = [];
     public string? PaymentReference { get; set; }
     public decimal? Price { get; set; }
+    public decimal? PaymentAmount { get; set; }
+    public bool IsUpgrade { get; set; }
+    public bool HasPendingUpgrade { get; set; }
+    public int? PendingPackageId { get; set; }
+    public string? PendingPackageName { get; set; }
+    public decimal? PendingPaymentAmount { get; set; }
 }
 
 public class SubscriptionPaymentCheckoutDto
@@ -39,6 +45,9 @@ public class SubscriptionPaymentCheckoutDto
     public string AccountNumber { get; set; } = string.Empty;
     public string AccountName { get; set; } = string.Empty;
     public bool IsPaymentConfigured { get; set; }
+    public bool IsUpgrade { get; set; }
+    public string? CurrentPackageName { get; set; }
+    public decimal? FullPackagePrice { get; set; }
 }
 
 public class PlatformPaymentSettingDto

@@ -31,10 +31,39 @@ public class SubscriptionService : ISubscriptionService
 
     public async Task<OwnerSubscriptionDto?> GetOwnerSubscriptionAsync(int ownerUserId)
     {
-        var subscription = await GetPrimarySubscriptionQuery(ownerUserId)
+        var now = DateTime.Now;
+        var active = await _context.Subscriptions
+            .AsNoTracking()
+            .Include(s => s.Package)
+            .Where(s => s.OwnerUserId == ownerUserId && s.Status == "Active" && s.EndDate >= now)
+            .OrderByDescending(s => s.EndDate)
             .FirstOrDefaultAsync();
 
-        return subscription == null ? null : MapOwnerSubscription(subscription);
+        var pendingUpgrade = await _context.Subscriptions
+            .AsNoTracking()
+            .Include(s => s.Package)
+            .Where(s => s.OwnerUserId == ownerUserId && s.Status == "Pending" && s.ReplacesSubscriptionId != null)
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (active != null)
+        {
+            var dto = MapOwnerSubscription(active);
+            if (pendingUpgrade != null)
+            {
+                dto.HasPendingUpgrade = true;
+                dto.PendingPackageId = pendingUpgrade.PackageId;
+                dto.PendingPackageName = pendingUpgrade.Package?.PackageName;
+                dto.PendingPaymentAmount = pendingUpgrade.PaymentAmount;
+            }
+
+            return dto;
+        }
+
+        var pending = await GetPrimarySubscriptionQuery(ownerUserId)
+            .FirstOrDefaultAsync();
+
+        return pending == null ? null : MapOwnerSubscription(pending);
     }
 
     public async Task<OwnerSubscriptionDto> RequestSubscriptionAsync(int ownerUserId, int packageId)
@@ -45,12 +74,14 @@ public class SubscriptionService : ISubscriptionService
             ?? throw new InvalidOperationException("Gói dịch vụ không tồn tại hoặc đã bị vô hiệu hóa.");
 
         var now = DateTime.Now;
-        var hasActive = await _context.Subscriptions.AnyAsync(s =>
-            s.OwnerUserId == ownerUserId &&
-            s.Status == "Active" &&
-            s.EndDate >= now);
-        if (hasActive)
-            throw new InvalidOperationException("Bạn đã có gói đang hoạt động.");
+        var active = await _context.Subscriptions
+            .Include(s => s.Package)
+            .Where(s => s.OwnerUserId == ownerUserId && s.Status == "Active" && s.EndDate >= now)
+            .OrderByDescending(s => s.EndDate)
+            .FirstOrDefaultAsync();
+
+        if (active != null)
+            return await RequestUpgradeAsync(ownerUserId, package, active, now);
 
         var pending = await _context.Subscriptions
             .Include(s => s.Package)
@@ -58,6 +89,8 @@ public class SubscriptionService : ISubscriptionService
         if (pending != null)
         {
             pending.PackageId = packageId;
+            pending.PaymentAmount = null;
+            pending.ReplacesSubscriptionId = null;
             pending.UpdatedAt = now;
             EnsurePaymentReference(pending);
             await _context.SaveChangesAsync();
@@ -99,16 +132,28 @@ public class SubscriptionService : ISubscriptionService
         if (subscription?.Package == null)
             return null;
 
+        var amountDue = GetAmountDue(subscription);
         var paymentReference = subscription.PaymentReference
             ?? SubscriptionPaymentHelper.BuildPaymentReference(subscription.SubscriptionId);
         var settings = await GetPlatformPaymentSettingsAsync();
+        string? currentPackageName = null;
+
+        if (subscription.ReplacesSubscriptionId.HasValue)
+        {
+            currentPackageName = await _context.Subscriptions
+                .AsNoTracking()
+                .Include(s => s.Package)
+                .Where(s => s.SubscriptionId == subscription.ReplacesSubscriptionId.Value)
+                .Select(s => s.Package!.PackageName)
+                .FirstOrDefaultAsync();
+        }
 
         return new SubscriptionPaymentCheckoutDto
         {
             SubscriptionId = subscription.SubscriptionId,
             PackageId = subscription.PackageId,
             PackageName = subscription.Package.PackageName,
-            Amount = subscription.Package.Price,
+            Amount = amountDue,
             PaymentReference = paymentReference,
             TransferContent = SubscriptionPaymentHelper.BuildTransferContent(
                 paymentReference,
@@ -117,7 +162,10 @@ public class SubscriptionService : ISubscriptionService
             BankId = settings?.BankId ?? string.Empty,
             AccountNumber = settings?.AccountNumber ?? string.Empty,
             AccountName = settings?.AccountName ?? string.Empty,
-            IsPaymentConfigured = settings?.IsConfigured == true
+            IsPaymentConfigured = settings?.IsConfigured == true,
+            IsUpgrade = subscription.ReplacesSubscriptionId.HasValue,
+            CurrentPackageName = currentPackageName,
+            FullPackagePrice = subscription.Package.Price
         };
     }
 
@@ -147,7 +195,7 @@ public class SubscriptionService : ISubscriptionService
         if (subscription?.Package == null)
             return false;
 
-        var expectedAmount = subscription.Package.Price;
+        var expectedAmount = GetAmountDue(subscription);
         if (Math.Abs(amount - expectedAmount) > 1m)
             return false;
 
@@ -171,9 +219,118 @@ public class SubscriptionService : ISubscriptionService
         var txId = $"DEV-{subscription.SubscriptionId}-{DateTime.UtcNow.Ticks}";
         return await ActivateSubscriptionWithPaymentAsync(
             subscription,
-            subscription.Package.Price,
+            GetAmountDue(subscription),
             "DevSimulate",
             txId);
+    }
+
+    private async Task<OwnerSubscriptionDto> RequestUpgradeAsync(
+        int ownerUserId,
+        Package newPackage,
+        Subscription activeSubscription,
+        DateTime now)
+    {
+        var currentPackage = activeSubscription.Package
+            ?? await _context.Packages.AsNoTracking().FirstOrDefaultAsync(p => p.PackageId == activeSubscription.PackageId)
+            ?? throw new InvalidOperationException("Không tìm thấy gói hiện tại.");
+
+        if (newPackage.PackageId == currentPackage.PackageId)
+            throw new InvalidOperationException("Bạn đang sử dụng gói này.");
+
+        if (newPackage.Price <= currentPackage.Price)
+            throw new InvalidOperationException("Chỉ có thể nâng cấp lên gói cao hơn. Liên hệ admin để hạ cấp gói.");
+
+        await ValidateRoomLimitAsync(ownerUserId, newPackage.MaxRooms);
+
+        var upgradeFee = SubscriptionUpgradeHelper.CalculateUpgradeFee(
+            currentPackage.Price,
+            newPackage.Price,
+            activeSubscription.EndDate,
+            now);
+
+        if (upgradeFee <= 0)
+            return await ApplyFreeUpgradeAsync(ownerUserId, newPackage, activeSubscription, now);
+
+        var stalePending = await _context.Subscriptions
+            .Where(s => s.OwnerUserId == ownerUserId && s.Status == "Pending")
+            .ToListAsync();
+        foreach (var stale in stalePending)
+        {
+            stale.Status = "Cancelled";
+            stale.UpdatedAt = now;
+        }
+
+        var pending = new Subscription
+        {
+            OwnerUserId = ownerUserId,
+            PackageId = newPackage.PackageId,
+            StartDate = activeSubscription.StartDate,
+            EndDate = activeSubscription.EndDate,
+            Status = "Pending",
+            PaymentAmount = upgradeFee,
+            ReplacesSubscriptionId = activeSubscription.SubscriptionId,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        _context.Subscriptions.Add(pending);
+        await _context.SaveChangesAsync();
+
+        pending.PaymentReference = SubscriptionPaymentHelper.BuildPaymentReference(pending.SubscriptionId);
+        pending.UpdatedAt = now;
+        await _context.SaveChangesAsync();
+
+        await _context.Entry(pending).Reference(s => s.Package).LoadAsync();
+        var dto = MapOwnerSubscription(pending);
+        dto.IsUpgrade = true;
+        return dto;
+    }
+
+    private async Task<OwnerSubscriptionDto> ApplyFreeUpgradeAsync(
+        int ownerUserId,
+        Package newPackage,
+        Subscription activeSubscription,
+        DateTime now)
+    {
+        activeSubscription.Status = "Cancelled";
+        activeSubscription.UpdatedAt = now;
+
+        var upgraded = new Subscription
+        {
+            OwnerUserId = ownerUserId,
+            PackageId = newPackage.PackageId,
+            StartDate = activeSubscription.StartDate,
+            EndDate = activeSubscription.EndDate,
+            Status = "Active",
+            PaymentAmount = 0,
+            ReplacesSubscriptionId = activeSubscription.SubscriptionId,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        _context.Subscriptions.Add(upgraded);
+        await _context.SaveChangesAsync();
+
+        upgraded.PaymentReference = SubscriptionPaymentHelper.BuildPaymentReference(upgraded.SubscriptionId);
+        upgraded.UpdatedAt = now;
+
+        _context.SubscriptionPayments.Add(new SubscriptionPayment
+        {
+            OwnerUserId = ownerUserId,
+            SubscriptionId = upgraded.SubscriptionId,
+            Amount = 0,
+            PaymentMethod = "Upgrade",
+            PaymentDate = now,
+            Status = "Success"
+        });
+
+        await _context.SaveChangesAsync();
+        await _context.Entry(upgraded).Reference(s => s.Package).LoadAsync();
+
+        var dto = MapOwnerSubscription(upgraded);
+        dto.IsUpgrade = true;
+        dto.PaymentAmount = 0;
+        return dto;
     }
 
     private async Task<bool> ActivateSubscriptionWithPaymentAsync(
@@ -186,8 +343,30 @@ public class SubscriptionService : ISubscriptionService
             return true;
 
         var now = DateTime.Now;
-        subscription.StartDate = now;
-        subscription.EndDate = now.AddMonths(1);
+
+        if (subscription.ReplacesSubscriptionId.HasValue)
+        {
+            var previous = await _context.Subscriptions
+                .FirstOrDefaultAsync(s => s.SubscriptionId == subscription.ReplacesSubscriptionId.Value);
+            if (previous != null)
+            {
+                subscription.StartDate = previous.StartDate;
+                subscription.EndDate = previous.EndDate;
+                previous.Status = "Cancelled";
+                previous.UpdatedAt = now;
+            }
+            else
+            {
+                subscription.StartDate = now;
+                subscription.EndDate = now.AddMonths(1);
+            }
+        }
+        else
+        {
+            subscription.StartDate = now;
+            subscription.EndDate = now.AddMonths(1);
+        }
+
         subscription.Status = "Active";
         subscription.UpdatedAt = now;
         subscription.PaymentReference ??= SubscriptionPaymentHelper.BuildPaymentReference(subscription.SubscriptionId);
@@ -206,6 +385,17 @@ public class SubscriptionService : ISubscriptionService
         await _context.SaveChangesAsync();
         return true;
     }
+
+    private async Task ValidateRoomLimitAsync(int ownerUserId, int maxRooms)
+    {
+        var roomCount = await _context.Rooms
+            .CountAsync(r => r.Building != null && r.Building.UserId == ownerUserId);
+        if (roomCount > maxRooms)
+            throw new InvalidOperationException($"Bạn đang quản lý {roomCount} phòng, vượt giới hạn gói mới ({maxRooms} phòng).");
+    }
+
+    private static decimal GetAmountDue(Subscription subscription) =>
+        subscription.PaymentAmount ?? subscription.Package?.Price ?? 0;
 
     private static void EnsurePaymentReference(Subscription subscription)
     {
@@ -268,7 +458,9 @@ public class SubscriptionService : ISubscriptionService
             EndDate = subscription.EndDate,
             Features = features,
             PaymentReference = subscription.PaymentReference,
-            Price = package?.Price
+            Price = package?.Price,
+            PaymentAmount = subscription.PaymentAmount,
+            IsUpgrade = subscription.ReplacesSubscriptionId.HasValue
         };
     }
 }

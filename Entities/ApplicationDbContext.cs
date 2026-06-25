@@ -592,6 +592,7 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
             entity.HasIndex(x => x.Status);
             entity.HasIndex(x => x.EndDate);
             entity.Property(x => x.PaymentReference).HasMaxLength(30);
+            entity.Property(x => x.PaymentAmount).HasColumnType("decimal(18,2)");
             entity.HasIndex(x => x.PaymentReference)
                 .IsUnique()
                 .HasFilter("[PaymentReference] IS NOT NULL");

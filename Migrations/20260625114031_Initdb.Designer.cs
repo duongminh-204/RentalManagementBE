@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace RentalManagementBE.Migrations
 {
     [DbContext(typeof(RentalManagementDb))]
-    [Migration("20260625082254_AddUserVisiblePassword")]
-    partial class AddUserVisiblePassword
+    [Migration("20260625114031_Initdb")]
+    partial class Initdb
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -507,10 +507,16 @@ namespace RentalManagementBE.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("FeatureLines")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("IsRecommended")
+                        .HasColumnType("bit");
 
                     b.Property<int>("MaxRooms")
                         .HasColumnType("int");
@@ -523,6 +529,14 @@ namespace RentalManagementBE.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RoomRange")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TargetAudience")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -577,6 +591,47 @@ namespace RentalManagementBE.Migrations
                     b.HasIndex("InvoiceId");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("Backend.Entities.PlatformPaymentSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("AccountNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("BankId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsConfigured")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PlatformPaymentSettings", (string)null);
                 });
 
             modelBuilder.Entity("Backend.Entities.Post", b =>
@@ -830,6 +885,17 @@ namespace RentalManagementBE.Migrations
                     b.Property<int>("PackageId")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("PaymentAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("ReplacesSubscriptionId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
@@ -853,6 +919,10 @@ namespace RentalManagementBE.Migrations
 
                     b.HasIndex("PackageId");
 
+                    b.HasIndex("PaymentReference")
+                        .IsUnique()
+                        .HasFilter("[PaymentReference] IS NOT NULL");
+
                     b.HasIndex("Status");
 
                     b.ToTable("Subscriptions", (string)null);
@@ -869,6 +939,10 @@ namespace RentalManagementBE.Migrations
                     b.Property<decimal>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ExternalTransactionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("OwnerUserId")
                         .HasColumnType("int");
@@ -894,6 +968,10 @@ namespace RentalManagementBE.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("PaymentId");
+
+                    b.HasIndex("ExternalTransactionId")
+                        .IsUnique()
+                        .HasFilter("[ExternalTransactionId] IS NOT NULL");
 
                     b.HasIndex("OwnerUserId");
 

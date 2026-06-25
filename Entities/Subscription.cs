@@ -22,6 +22,12 @@ public class Subscription
     [MaxLength(30)]
     public string? PaymentReference { get; set; }
 
+    /// <summary>Số tiền cần thanh toán (null = giá đầy đủ của gói; dùng cho nâng cấp prorated).</summary>
+    public decimal? PaymentAmount { get; set; }
+
+    /// <summary>Gói đang hoạt động sẽ bị thay thế sau khi thanh toán nâng cấp thành công.</summary>
+    public int? ReplacesSubscriptionId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
