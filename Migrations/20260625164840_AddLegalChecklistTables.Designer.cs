@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace RentalManagementBE.Migrations
 {
     [DbContext(typeof(RentalManagementDb))]
-    [Migration("20260625162114_AddLegalChecklist")]
-    partial class AddLegalChecklist
+    [Migration("20260625164840_AddLegalChecklistTables")]
+    partial class AddLegalChecklistTables
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -110,6 +110,56 @@ namespace RentalManagementBE.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Buildings");
+                });
+
+            modelBuilder.Entity("Backend.Entities.BuildingLegalDocument", b =>
+                {
+                    b.Property<int>("BuildingLegalDocumentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BuildingLegalDocumentId"));
+
+                    b.Property<int>("BuildingId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FileUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("IssueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("BuildingLegalDocumentId");
+
+                    b.HasIndex("BuildingId");
+
+                    b.ToTable("BuildingLegalDocuments", (string)null);
                 });
 
             modelBuilder.Entity("Backend.Entities.Contract", b =>
@@ -847,6 +897,44 @@ namespace RentalManagementBE.Migrations
                     b.ToTable("RoomImages");
                 });
 
+            modelBuilder.Entity("Backend.Entities.RoomLegalProfile", b =>
+                {
+                    b.Property<int>("RoomLegalProfileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoomLegalProfileId"));
+
+                    b.Property<string>("AssetConditionNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<bool>("HandoverCompleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("HandoverRecordFile")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RoomId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("RoomLegalProfileId");
+
+                    b.HasIndex("RoomId")
+                        .IsUnique();
+
+                    b.ToTable("RoomLegalProfiles", (string)null);
+                });
+
             modelBuilder.Entity("Backend.Entities.RoomService", b =>
                 {
                     b.Property<int>("RoomServiceId")
@@ -1112,6 +1200,59 @@ namespace RentalManagementBE.Migrations
                         .HasFilter("[PhoneNumber] IS NOT NULL");
 
                     b.ToTable("Tenants", (string)null);
+                });
+
+            modelBuilder.Entity("Backend.Entities.TenantLegalProfile", b =>
+                {
+                    b.Property<int>("TenantLegalProfileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TenantLegalProfileId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<string>("DepositReceiptFile")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmergencyContactName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("EmergencyContactPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("EmergencyContactRelation")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("TempResidenceCompleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("TempResidenceDeclaredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TempResidenceFile")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("TenantLegalProfileId");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("TenantLegalProfiles", (string)null);
                 });
 
             modelBuilder.Entity("Backend.Entities.User", b =>
@@ -1490,6 +1631,17 @@ namespace RentalManagementBE.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Backend.Entities.BuildingLegalDocument", b =>
+                {
+                    b.HasOne("Backend.Entities.Building", "Building")
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Building");
+                });
+
             modelBuilder.Entity("Backend.Entities.Contract", b =>
                 {
                     b.HasOne("Backend.Entities.Contract", "ParentContract")
@@ -1648,6 +1800,17 @@ namespace RentalManagementBE.Migrations
                     b.Navigation("Room");
                 });
 
+            modelBuilder.Entity("Backend.Entities.RoomLegalProfile", b =>
+                {
+                    b.HasOne("Backend.Entities.Room", "Room")
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Room");
+                });
+
             modelBuilder.Entity("Backend.Entities.RoomService", b =>
                 {
                     b.HasOne("Backend.Entities.Room", "Room")
@@ -1703,6 +1866,17 @@ namespace RentalManagementBE.Migrations
                     b.Navigation("Owner");
 
                     b.Navigation("Subscription");
+                });
+
+            modelBuilder.Entity("Backend.Entities.TenantLegalProfile", b =>
+                {
+                    b.HasOne("Backend.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("Backend.Entities.UtilityUsage", b =>
