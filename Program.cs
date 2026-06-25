@@ -13,7 +13,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
+
+// Keep JWT claim types stable across .NET 8 (avoid "sub"/"role" vs ClaimTypes mismatch).
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -139,7 +145,10 @@ builder.Services.AddScoped<IAdminRepository, AdminRepository>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IUserRoleService, UserRoleService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
+builder.Services.AddScoped<IAuthorizationHandler, OwnerRoleAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, PackageFeatureAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveUserAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, NotSuspendedAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveSubscriptionAuthorizationHandler>();
@@ -168,6 +177,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         if (string.IsNullOrWhiteSpace(jwtKey))
             throw new InvalidOperationException("JWT Key is missing.");
 
+        options.MapInboundClaims = false;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -177,6 +188,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            NameClaimType = ClaimTypes.NameIdentifier,
+            RoleClaimType = ClaimTypes.Role,
             ClockSkew = TimeSpan.Zero
         };
     });
@@ -200,15 +213,20 @@ builder.Services.AddAuthorization(options =>
             .AddRequirements(new ActiveUserRequirement()));
 
     options.AddPolicy(AuthorizationPolicies.ActiveOwner, policy =>
-        policy.RequireRole(RoleNames.Owner)
-            .AddRequirements(new ActiveUserRequirement(), new NotSuspendedRequirement()));
+        policy.AddRequirements(new OwnerRoleRequirement(), new ActiveUserRequirement(), new NotSuspendedRequirement()));
 
     options.AddPolicy(AuthorizationPolicies.ActiveOwnerSubscription, policy =>
-        policy.RequireRole(RoleNames.Owner)
-            .AddRequirements(
+        policy.AddRequirements(
+                new OwnerRoleRequirement(),
                 new ActiveUserRequirement(),
                 new NotSuspendedRequirement(),
                 new ActiveSubscriptionRequirement()));
+
+    foreach (PackageFeature feature in Enum.GetValues<PackageFeature>())
+    {
+        options.AddPolicy(PackageCatalog.GetPolicyName(feature), policy =>
+            policy.AddRequirements(new PackageFeatureRequirement(feature)));
+    }
 });
 
 var app = builder.Build();

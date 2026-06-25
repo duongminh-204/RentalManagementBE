@@ -51,6 +51,14 @@ public class AdminSubscriptionsController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    [HttpPost("{id}/activate")]
+    public async Task<ActionResult<AdminSubscriptionDto>> Activate(int id)
+    {
+        try { return Ok(await _adminService.ActivateSubscriptionAsync(id, GetUserId(), GetIp())); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     [HttpPost("{id}/cancel")]
     public async Task<ActionResult<AdminSubscriptionDto>> Cancel(int id)
     {

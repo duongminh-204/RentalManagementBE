@@ -17,3 +17,10 @@ public static class RoleNames
     public const string Owner = "Owner";
     public const string Tenant = "Tenant";
 }
+
+public static class PackageFeaturePolicies
+{
+    public const string RevenueDebtReports = "PackageFeature.RevenueDebtReports";
+    public const string VehicleManagement = "PackageFeature.VehicleManagement";
+    public const string AiRoomDecor = "PackageFeature.AiRoomDecor";
+}

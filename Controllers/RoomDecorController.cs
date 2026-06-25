@@ -9,6 +9,7 @@ namespace Backend.Controllers;
 [Route("api/room-decor")]
 [ApiController]
 [Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = PackageFeaturePolicies.AiRoomDecor)]
 public class RoomDecorController : ControllerBase
 {
     private readonly IRoomDecorService _decor;

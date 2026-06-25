@@ -324,6 +324,26 @@ public class AdminService : IAdminService
         return items.First(s => s.SubscriptionId == subscriptionId);
     }
 
+    public async Task<AdminSubscriptionDto> ActivateSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip)
+    {
+        var sub = await _repo.GetSubscriptionByIdAsync(subscriptionId) ?? throw new KeyNotFoundException();
+        if (sub.Status != "Pending")
+            throw new InvalidOperationException("Chỉ có thể kích hoạt gói đang chờ duyệt (Pending).");
+
+        var now = DateTime.Now;
+        sub.StartDate = now;
+        sub.EndDate = now.AddMonths(1);
+        sub.Status = "Active";
+        sub.UpdatedAt = now;
+        await _repo.SaveChangesAsync();
+
+        await RecordPaymentAsync(sub, sub.Package.Price, "Activation", adminUserId, ip);
+        await _auditLog.LogAsync(adminUserId, "Subscription", "Subscription", subscriptionId, "Activated", ip);
+
+        var (items, _) = await _repo.GetSubscriptionsAsync(null, null, 1, 100);
+        return items.First(s => s.SubscriptionId == subscriptionId);
+    }
+
     public async Task<PagedResultDto<AdminPaymentDto>> GetPaymentsAsync(string? status, int? ownerId, DateTime? from, DateTime? to, int page, int pageSize)
     {
         page = Math.Max(1, page);

@@ -23,8 +23,8 @@ public static class DatabaseSeeder
         try
         {
             await SeedRolesAsync(roleManager, logger);
-            await SeedPackagesAsync(context, logger);
-            await SeedAdminUserAsync(userManager, logger);
+            await SyncPackageCatalogAsync(context, logger);
+            await SeedAdminUserAsync(userManager, logger, configuration);
 
             if (configuration.GetValue("SeedCatalogs", true))
                 await SeedCatalogsAsync(context, logger);
@@ -57,46 +57,100 @@ public static class DatabaseSeeder
         logger.LogInformation("Seed roles successfully.");
     }
 
-    private static async Task SeedPackagesAsync(RentalManagementDb context, ILogger logger)
+    private static async Task SyncPackageCatalogAsync(RentalManagementDb context, ILogger logger)
     {
-        if (await context.Packages.AnyAsync()) return;
+        var now = DateTime.Now;
+        foreach (var definition in PackageCatalog.All)
+        {
+            var package = await context.Packages
+                .FirstOrDefaultAsync(p => p.PackageName == definition.PackageName);
 
-        context.Packages.AddRange(
-            new Package { PackageName = "Basic", Price = 199_000m, MaxRooms = 10, Description = "Gói cơ bản cho chủ trọ nhỏ", IsEnabled = true },
-            new Package { PackageName = "Pro", Price = 499_000m, MaxRooms = 50, Description = "Gói chuyên nghiệp cho nhiều phòng", IsEnabled = true },
-            new Package { PackageName = "Enterprise", Price = 999_000m, MaxRooms = 200, Description = "Gói doanh nghiệp không giới hạn quy mô", IsEnabled = true }
-        );
+            if (package == null)
+            {
+                context.Packages.Add(new Package
+                {
+                    PackageName = definition.PackageName,
+                    Price = definition.Price,
+                    MaxRooms = definition.MaxRooms,
+                    Description = definition.Description,
+                    IsEnabled = true,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                continue;
+            }
+
+            package.Price = definition.Price;
+            package.MaxRooms = definition.MaxRooms;
+            package.Description = definition.Description;
+            package.IsEnabled = true;
+            package.UpdatedAt = now;
+        }
+
+        var legacyNames = new[] { "Basic", "Pro", "Enterprise" };
+        var legacyPackages = await context.Packages
+            .Where(p => legacyNames.Contains(p.PackageName))
+            .ToListAsync();
+        foreach (var legacy in legacyPackages)
+            legacy.IsEnabled = false;
 
         await context.SaveChangesAsync();
-        logger.LogInformation("Seed packages successfully.");
+        logger.LogInformation("Synced package catalog (Starter, PRO, PREMIUM).");
     }
 
-    private static async Task SeedAdminUserAsync(UserManager<User> userManager, ILogger logger)
+    private static async Task SeedAdminUserAsync(
+        UserManager<User> userManager,
+        ILogger logger,
+        IConfiguration configuration)
     {
         const string adminEmail = "admin@rentalmanagement.site";
-        if (await userManager.FindByEmailAsync(adminEmail) != null) return;
+        const string adminPassword = "Admin@123";
 
-        var admin = new User
+        var admin = await userManager.FindByEmailAsync(adminEmail);
+        if (admin == null)
         {
-            UserName = adminEmail,
-            FullName = "System Admin",
-            Email = adminEmail,
-            PhoneNumber = "0900000000",
-            IsActive = true,
-            IsSuspended = false,
-            CreatedAt = DateTime.Now.AddMonths(-12),
-            UpdatedAt = DateTime.Now
-        };
+            admin = new User
+            {
+                UserName = adminEmail,
+                FullName = "System Admin",
+                Email = adminEmail,
+                PhoneNumber = "0900000000",
+                IsActive = true,
+                IsSuspended = false,
+                CreatedAt = DateTime.Now.AddMonths(-12),
+                UpdatedAt = DateTime.Now
+            };
 
-        var result = await userManager.CreateAsync(admin, "Admin@123");
-        if (!result.Succeeded)
-        {
-            logger.LogError("Seed admin user failed: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+            var result = await userManager.CreateAsync(admin, adminPassword);
+            if (!result.Succeeded)
+            {
+                logger.LogError("Seed admin user failed: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+                return;
+            }
+
+            await userManager.AddToRoleAsync(admin, RoleNames.Admin);
+            logger.LogInformation("Seed admin user: {Email} / {Password}", adminEmail, adminPassword);
             return;
         }
 
-        await userManager.AddToRoleAsync(admin, RoleNames.Admin);
-        logger.LogInformation("Seed admin user: admin@rentalmanagement.site / Admin@123");
+        if (!await userManager.IsInRoleAsync(admin, RoleNames.Admin))
+            await userManager.AddToRoleAsync(admin, RoleNames.Admin);
+
+        var ensurePassword = configuration.GetValue("EnsureSeedAdminPassword", false);
+        if (ensurePassword && !await userManager.CheckPasswordAsync(admin, adminPassword))
+        {
+            var resetToken = await userManager.GeneratePasswordResetTokenAsync(admin);
+            var resetResult = await userManager.ResetPasswordAsync(admin, resetToken, adminPassword);
+            if (!resetResult.Succeeded)
+            {
+                logger.LogError(
+                    "Reset seed admin password failed: {Errors}",
+                    string.Join(", ", resetResult.Errors.Select(e => e.Description)));
+                return;
+            }
+
+            logger.LogWarning("Reset seed admin password for {Email}", adminEmail);
+        }
     }
 
     private static async Task SeedCatalogsAsync(RentalManagementDb context, ILogger logger)
@@ -143,9 +197,9 @@ public static class DatabaseSeeder
         if (await context.Users.AnyAsync(u => u.Email == DemoMarkerEmail)) return;
 
         var now = DateTime.Now;
-        var basic = await context.Packages.FirstAsync(p => p.PackageName == "Basic");
-        var pro = await context.Packages.FirstAsync(p => p.PackageName == "Pro");
-        var enterprise = await context.Packages.FirstAsync(p => p.PackageName == "Enterprise");
+        var starter = await context.Packages.FirstAsync(p => p.PackageName == PackageCatalog.Starter);
+        var pro = await context.Packages.FirstAsync(p => p.PackageName == PackageCatalog.Pro);
+        var premium = await context.Packages.FirstAsync(p => p.PackageName == PackageCatalog.Premium);
 
         var owners = new List<User>();
         foreach (var (fullName, email, phone, createdAt, isActive, isSuspended) in new (string, string, string, DateTime, bool, bool)[]
@@ -250,10 +304,10 @@ public static class DatabaseSeeder
         var subscriptions = new List<Subscription>
         {
             CreateSubscription(owner1.Id, pro.PackageId, now.AddMonths(-6), now.AddMonths(6), "Active"),
-            CreateSubscription(owner2.Id, basic.PackageId, now.AddMonths(-4), now.AddMonths(-1), "Expired"),
+            CreateSubscription(owner2.Id, starter.PackageId, now.AddMonths(-4), now.AddMonths(-1), "Expired"),
             CreateSubscription(owner3.Id, pro.PackageId, now.AddMonths(-3), now.AddMonths(3), "Suspended"),
-            CreateSubscription(owner4.Id, basic.PackageId, now.AddMonths(-1), now.AddDays(5), "Active"),
-            CreateSubscription(owner6.Id, enterprise.PackageId, now.AddDays(-10), now.AddMonths(2), "Active"),
+            CreateSubscription(owner4.Id, starter.PackageId, now.AddMonths(-1), now.AddDays(5), "Active"),
+            CreateSubscription(owner6.Id, premium.PackageId, now.AddDays(-10), now.AddMonths(2), "Active"),
         };
 
         context.Subscriptions.AddRange(subscriptions);
@@ -265,8 +319,8 @@ public static class DatabaseSeeder
         foreach (var sub in subscriptions.Where(s => s.Status is "Active" or "Expired"))
         {
             var package = sub.PackageId == pro.PackageId ? pro
-                : sub.PackageId == enterprise.PackageId ? enterprise
-                : basic;
+                : sub.PackageId == premium.PackageId ? premium
+                : starter;
 
             for (var i = 5; i >= 0; i--)
             {
@@ -292,7 +346,7 @@ public static class DatabaseSeeder
         var admin = await context.Users.FirstOrDefaultAsync(u => u.Email == "admin@rentalmanagement.site");
         var auditLogs = new List<AuditLog>
         {
-            new() { UserId = admin?.Id, Action = "Create", Entity = "Package", EntityId = basic.PackageId, IPAddress = "127.0.0.1", Timestamp = now.AddDays(-30), Details = "Seed Basic package" },
+            new() { UserId = admin?.Id, Action = "Create", Entity = "Package", EntityId = starter.PackageId, IPAddress = "127.0.0.1", Timestamp = now.AddDays(-30), Details = "Seed Starter package" },
             new() { UserId = admin?.Id, Action = "Create", Entity = "Owner", EntityId = owner1.Id, IPAddress = "127.0.0.1", Timestamp = now.AddMonths(-8), Details = "Seed demo owner" },
             new() { UserId = owner1.Id, Action = "Login", Entity = "User", EntityId = owner1.Id, IPAddress = "192.168.1.10", Timestamp = now.AddDays(-1), Details = owner1.Email },
             new() { UserId = admin?.Id, Action = "Subscription", Entity = "Subscription", EntityId = subscriptions[0].SubscriptionId, IPAddress = "127.0.0.1", Timestamp = now.AddMonths(-6), Details = "Activated Pro" },

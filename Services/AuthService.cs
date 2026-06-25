@@ -19,6 +19,7 @@ namespace Backend.Services
         private readonly JwtService _jwtService;
         private readonly UserManager<User> _userManager;
         private readonly IUserRoleService _userRoleService;
+        private readonly ISubscriptionService _subscriptionService;
         private readonly IConfiguration _configuration;
         private readonly IMemoryCache _cache;
 
@@ -29,6 +30,7 @@ namespace Backend.Services
             JwtService jwtService,
             UserManager<User> userManager,
             IUserRoleService userRoleService,
+            ISubscriptionService subscriptionService,
             IConfiguration configuration,
             IMemoryCache cache)
         {
@@ -36,6 +38,7 @@ namespace Backend.Services
             _jwtService = jwtService;
             _userManager = userManager;
             _userRoleService = userRoleService;
+            _subscriptionService = subscriptionService;
             _configuration = configuration;
             _cache = cache;
         }
@@ -126,6 +129,10 @@ namespace Backend.Services
             }
 
             await _userManager.AddToRoleAsync(newUser, selectedRoleName);
+
+            if (selectedRoleName == RoleNames.Owner && request.PackageId.HasValue)
+                await _subscriptionService.RequestSubscriptionAsync(newUser.Id, request.PackageId.Value);
+
             var roles = await _userRoleService.GetRolesAsync(newUser);
             var token = _jwtService.GenerateToken(newUser, roles);
 
@@ -347,14 +354,25 @@ namespace Backend.Services
 
         private async Task<AuthUserDto> MapAuthUserAsync(User user)
         {
-            return new AuthUserDto
+            var role = await _userRoleService.GetPrimaryRoleAsync(user) ?? string.Empty;
+            var dto = new AuthUserDto
             {
                 UserId = user.UserId,
                 FullName = user.FullName,
                 Email = user.Email,
                 PhoneNumber = user.PhoneNumber,
-                Role = await _userRoleService.GetPrimaryRoleAsync(user) ?? string.Empty,
+                Role = role,
             };
+
+            if (string.Equals(role, RoleNames.Owner, StringComparison.OrdinalIgnoreCase))
+            {
+                var subscription = await _subscriptionService.GetOwnerSubscriptionAsync(user.Id);
+                dto.SubscriptionStatus = subscription?.Status ?? "None";
+                dto.PackageId = subscription?.PackageId;
+                dto.PackageName = subscription?.PackageName;
+            }
+
+            return dto;
         }
 
         private static string GetOtpCacheKey(string email) => $"pwd-reset-otp:{email.ToLowerInvariant()}";

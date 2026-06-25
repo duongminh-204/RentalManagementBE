@@ -28,6 +28,7 @@ public interface IAdminService
     Task<AdminSubscriptionDto> DowngradeSubscriptionAsync(int subscriptionId, ChangePackageDto dto, int? adminUserId, string? ip);
     Task<AdminSubscriptionDto> RenewSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip);
     Task<AdminSubscriptionDto> CancelSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip);
+    Task<AdminSubscriptionDto> ActivateSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip);
 
     Task<PagedResultDto<AdminPaymentDto>> GetPaymentsAsync(string? status, int? ownerId, DateTime? from, DateTime? to, int page, int pageSize);
     Task<RevenueReportDto> GetRevenueReportAsync(DateTime? from, DateTime? to);

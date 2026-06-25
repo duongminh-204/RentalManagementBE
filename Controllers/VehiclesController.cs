@@ -10,6 +10,7 @@ namespace Backend.Controllers;
 [Route("api/vehicles")]
 [ApiController]
 [Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = PackageFeaturePolicies.VehicleManagement)]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleService _vehicleService;

@@ -482,15 +482,25 @@ public class AdminRepository : IAdminRepository
         var monthlyRevenue = await query.Where(p => p.PaymentDate >= monthStart).SumAsync(p => (decimal?)p.Amount) ?? 0m;
         var totalPayments = await query.CountAsync();
 
-        var byMonth = await query
+        var byMonthRaw = await query
             .GroupBy(p => new { p.PaymentDate.Year, p.PaymentDate.Month })
-            .Select(g => new ChartDataPointDto
+            .Select(g => new
             {
-                Label = g.Key.Month.ToString("00") + "/" + g.Key.Year,
+                g.Key.Year,
+                g.Key.Month,
                 Value = g.Sum(x => x.Amount)
             })
-            .OrderBy(x => x.Label)
+            .OrderBy(x => x.Year)
+            .ThenBy(x => x.Month)
             .ToListAsync();
+
+        var byMonth = byMonthRaw
+            .Select(x => new ChartDataPointDto
+            {
+                Label = x.Month.ToString("00") + "/" + x.Year,
+                Value = x.Value
+            })
+            .ToList();
 
         return new RevenueReportDto
         {

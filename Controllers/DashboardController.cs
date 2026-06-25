@@ -41,6 +41,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet("debt/info")]
+    [Authorize(Policy = PackageFeaturePolicies.RevenueDebtReports)]
     public async Task<IActionResult> GetDebtInfo([FromQuery] int? buildingId)
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();
@@ -50,6 +51,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpPost("debt/invoices/{invoiceId:int}/payments")]
+    [Authorize(Policy = PackageFeaturePolicies.RevenueDebtReports)]
     public async Task<IActionResult> RecordDebtPayment(int invoiceId, [FromBody] DashboardDebtPaymentRequestDto request)
     {
         try
@@ -64,6 +66,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpPost("debt/invoices/{invoiceId:int}/items/{itemKey}/restore")]
+    [Authorize(Policy = PackageFeaturePolicies.RevenueDebtReports)]
     public async Task<IActionResult> RestoreDebtItem(int invoiceId, string itemKey)
     {
         try
@@ -78,6 +81,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet("revenue/{month:int}/{year:int}")]
+    [Authorize(Policy = PackageFeaturePolicies.RevenueDebtReports)]
     public async Task<IActionResult> GetRevenue(int month, int year, [FromQuery] int? buildingId)
     {
         if (!TryGetUserId(out var userId)) return Unauthorized();

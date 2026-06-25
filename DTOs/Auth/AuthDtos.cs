@@ -13,6 +13,7 @@ public class RegisterRequestDto
     public string PhoneNumber { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Role { get; set; } = "Tenant";
+    public int? PackageId { get; set; }
 }
 
 public class GoogleLoginRequestDto
@@ -47,4 +48,7 @@ public class AuthUserDto
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
     public string Role { get; set; } = string.Empty;
+    public string? SubscriptionStatus { get; set; }
+    public int? PackageId { get; set; }
+    public string? PackageName { get; set; }
 }
