@@ -216,7 +216,7 @@ public class SubscriptionService : ISubscriptionService
     {
         return await _context.PlatformPaymentSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == 1);
+            .FirstOrDefaultAsync();
     }
 
     private IQueryable<Subscription> GetPrimarySubscriptionQuery(int ownerUserId) =>

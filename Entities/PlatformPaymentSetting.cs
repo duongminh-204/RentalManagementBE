@@ -7,7 +7,7 @@ namespace Backend.Entities;
 /// </summary>
 public class PlatformPaymentSetting
 {
-    public int Id { get; set; } = 1;
+    public int Id { get; set; }
 
     [Required]
     [MaxLength(50)]

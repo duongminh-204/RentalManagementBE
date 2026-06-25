@@ -645,7 +645,7 @@ public class AdminService : IAdminService
     {
         var settings = await _context.PlatformPaymentSettings
             .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == 1);
+            .FirstOrDefaultAsync();
 
         return settings == null
             ? new PlatformPaymentSettingDto()
@@ -665,10 +665,10 @@ public class AdminService : IAdminService
             throw new InvalidOperationException("Vui lòng nhập đầy đủ thông tin tài khoản ngân hàng.");
         }
 
-        var settings = await _context.PlatformPaymentSettings.FirstOrDefaultAsync(s => s.Id == 1);
+        var settings = await _context.PlatformPaymentSettings.FirstOrDefaultAsync();
         if (settings == null)
         {
-            settings = new PlatformPaymentSetting { Id = 1 };
+            settings = new PlatformPaymentSetting();
             _context.PlatformPaymentSettings.Add(settings);
         }
 
@@ -680,7 +680,7 @@ public class AdminService : IAdminService
         settings.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync();
-        await _auditLog.LogAsync(adminUserId, "Update", "PlatformPaymentSetting", 1, settings.BankName, ip);
+        await _auditLog.LogAsync(adminUserId, "Update", "PlatformPaymentSetting", settings.Id, settings.BankName, ip);
 
         return MapPlatformPaymentSetting(settings);
     }

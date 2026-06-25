@@ -1,3 +1,4 @@
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -28,7 +29,8 @@ namespace RentalManagementBE.Migrations
                 name: "PlatformPaymentSettings",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false),
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
                     BankName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     BankId = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     AccountNumber = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
@@ -40,6 +42,9 @@ namespace RentalManagementBE.Migrations
                 {
                     table.PrimaryKey("PK_PlatformPaymentSettings", x => x.Id);
                 });
+
+            migrationBuilder.Sql(
+                "UPDATE Subscriptions SET PaymentReference = CONCAT('DK', SubscriptionId) WHERE PaymentReference IS NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Subscriptions_PaymentReference",
@@ -54,9 +59,6 @@ namespace RentalManagementBE.Migrations
                 column: "ExternalTransactionId",
                 unique: true,
                 filter: "[ExternalTransactionId] IS NOT NULL");
-
-            migrationBuilder.Sql(
-                "UPDATE Subscriptions SET PaymentReference = CONCAT('DK', SubscriptionId) WHERE PaymentReference IS NULL");
         }
 
         /// <inheritdoc />
