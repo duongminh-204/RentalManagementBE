@@ -38,6 +38,8 @@ public interface IAdminService
     Task<AdminUserDto> EnableUserAsync(int userId, int? adminUserId, string? ip);
     Task<AdminUserDto> DisableUserAsync(int userId, int? adminUserId, string? ip);
     Task<AdminResetPasswordResultDto> ResetUserPasswordAsync(int userId, int? adminUserId, string? ip);
+    Task<AdminUserPasswordDto> GetUserPasswordAsync(int userId);
+    Task ChangeUserPasswordAsync(int userId, AdminChangePasswordDto dto, int? adminUserId, string? ip);
     Task DeleteUserAsync(int userId, int? adminUserId, string? ip);
 
     Task<PagedResultDto<AdminAuditLogDto>> GetAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to, int page, int pageSize);

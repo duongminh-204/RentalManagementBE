@@ -72,6 +72,9 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
             entity.Property(x => x.Address)
                   .HasMaxLength(500);
 
+            entity.Property(x => x.VisiblePassword)
+                  .HasMaxLength(256);
+
             entity.Property(x => x.Avatar)
                   .HasMaxLength(500);
 

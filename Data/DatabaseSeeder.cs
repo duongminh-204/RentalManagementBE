@@ -395,6 +395,8 @@ public static class DatabaseSeeder
         if (!result.Succeeded)
             throw new InvalidOperationException($"Seed user {email} failed: {string.Join(", ", result.Errors.Select(e => e.Description))}");
 
+        user.VisiblePassword = DemoPassword;
+        await userManager.UpdateAsync(user);
         await userManager.AddToRoleAsync(user, roleName);
         return user;
     }

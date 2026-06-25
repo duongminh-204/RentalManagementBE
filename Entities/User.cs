@@ -27,6 +27,9 @@ public class User : IdentityUser<int>
     [MaxLength(500)]
     public string? Address { get; set; }
 
+    [MaxLength(256)]
+    public string? VisiblePassword { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public bool IsSuspended { get; set; } = false;

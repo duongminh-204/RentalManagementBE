@@ -68,6 +68,7 @@ public class AdminService : IAdminService
             FullName = dto.FullName.Trim(),
             Email = dto.Email.Trim(),
             PhoneNumber = dto.PhoneNumber?.Trim(),
+            VisiblePassword = dto.Password,
             IsActive = true,
             IsSuspended = false,
             CreatedAt = DateTime.Now,
@@ -436,6 +437,33 @@ public class AdminService : IAdminService
             Message = "Đặt lại mật khẩu thành công.",
             TemporaryPassword = tempPassword
         };
+    }
+
+    public async Task<AdminUserPasswordDto> GetUserPasswordAsync(int userId)
+    {
+        var user = await _repo.GetUserByIdAsync(userId) ?? throw new KeyNotFoundException();
+        return new AdminUserPasswordDto { Password = user.VisiblePassword };
+    }
+
+    public async Task ChangeUserPasswordAsync(int userId, AdminChangePasswordDto dto, int? adminUserId, string? ip)
+    {
+        if (string.IsNullOrWhiteSpace(dto.NewPassword) || dto.NewPassword.Length < 6)
+            throw new InvalidOperationException("Mật khẩu mới phải có ít nhất 6 ký tự.");
+
+        var user = await _repo.GetUserByIdAsync(userId) ?? throw new KeyNotFoundException();
+
+        if (await _userRoleService.IsInRoleAsync(user, RoleNames.Admin))
+            throw new InvalidOperationException("Không thể đổi mật khẩu tài khoản Admin.");
+
+        var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var resetResult = await _userManager.ResetPasswordAsync(user, resetToken, dto.NewPassword);
+        if (!resetResult.Succeeded)
+            throw new InvalidOperationException(string.Join(" ", resetResult.Errors.Select(e => e.Description)));
+
+        user.VisiblePassword = dto.NewPassword;
+        user.UpdatedAt = DateTime.Now;
+        await _repo.SaveChangesAsync();
+        await _auditLog.LogAsync(adminUserId, "Update", "User", userId, "ChangePassword", ip);
     }
 
     public async Task DeleteUserAsync(int userId, int? adminUserId, string? ip)

@@ -172,6 +172,16 @@ public class AdminResetPasswordResultDto
     public string TemporaryPassword { get; set; } = string.Empty;
 }
 
+public class AdminUserPasswordDto
+{
+    public string? Password { get; set; }
+}
+
+public class AdminChangePasswordDto
+{
+    public string NewPassword { get; set; } = string.Empty;
+}
+
 // Audit Logs
 public class AdminAuditLogDto
 {

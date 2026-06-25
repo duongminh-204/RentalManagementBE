@@ -51,6 +51,46 @@ public class AdminUsersController : ControllerBase
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
+    [HttpGet("{id}/password")]
+    public async Task<ActionResult<AdminUserPasswordDto>> GetPassword(int id)
+    {
+        try { return Ok(await _adminService.GetUserPasswordAsync(id)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpPut("{id}/password")]
+    public async Task<IActionResult> ChangePassword(int id, [FromBody] AdminChangePasswordDto dto)
+    {
+        try
+        {
+            await _adminService.ChangeUserPasswordAsync(id, dto, GetUserId(), GetIp());
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/lock")]
+    public async Task<ActionResult<AdminUserDto>> Lock(int id)
+    {
+        try { return Ok(await _adminService.DisableUserAsync(id, GetUserId(), GetIp())); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPost("{id}/unlock")]
+    public async Task<ActionResult<AdminUserDto>> Unlock(int id)
+    {
+        try { return Ok(await _adminService.EnableUserAsync(id, GetUserId(), GetIp())); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
