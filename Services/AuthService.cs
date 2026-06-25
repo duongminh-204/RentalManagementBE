@@ -190,7 +190,7 @@ namespace Backend.Services
 
             if (user == null)
             {
-                var defaultRole = await _userRepository.GetRoleByNameAsync(RoleNames.Tenant);
+                var defaultRole = await _userRepository.GetRoleByNameAsync(RoleNames.Owner);
                 if (defaultRole == null)
                 {
                     return new AuthResponseDto
@@ -220,7 +220,7 @@ namespace Backend.Services
                     };
                 }
 
-                await _userManager.AddToRoleAsync(user, RoleNames.Tenant);
+                await _userManager.AddToRoleAsync(user, RoleNames.Owner);
             }
             else if (!user.IsActive || user.IsSuspended)
             {
