@@ -26,8 +26,6 @@ public class SubscriptionService : ISubscriptionService
 
         return packages
             .Select(MapPublicPackage)
-            .Where(p => p != null)
-            .Cast<PublicPackageDto>()
             .ToList();
     }
 
@@ -88,34 +86,45 @@ public class SubscriptionService : ISubscriptionService
         return MapOwnerSubscription(subscription);
     }
 
-    private static PublicPackageDto? MapPublicPackage(Package package)
+    private static PublicPackageDto MapPublicPackage(Package package)
     {
         var definition = PackageCatalog.Find(package.PackageName);
-        if (definition == null) return null;
+        var features = PackageFeatureHelper.SplitFeatureLines(package.FeatureLines);
+        if (features.Count == 0 && definition != null)
+            features = definition.FeatureLines.ToList();
 
         return new PublicPackageDto
         {
             PackageId = package.PackageId,
             PackageName = package.PackageName,
-            RoomRange = definition.RoomRange,
-            TargetAudience = definition.TargetAudience,
+            RoomRange = package.RoomRange ?? definition?.RoomRange ?? $"Tối đa {package.MaxRooms} phòng",
+            TargetAudience = package.TargetAudience ?? definition?.TargetAudience ?? string.Empty,
             Price = package.Price,
             MaxRooms = package.MaxRooms,
-            Description = package.Description ?? definition.Description,
-            Recommended = definition.Recommended,
-            Features = definition.FeatureLines.ToList()
+            Description = package.Description ?? definition?.Description ?? string.Empty,
+            Recommended = package.IsRecommended || (definition?.Recommended ?? false),
+            Features = features
         };
     }
 
-    private static OwnerSubscriptionDto MapOwnerSubscription(Subscription subscription) =>
-        new()
+    private static OwnerSubscriptionDto MapOwnerSubscription(Subscription subscription)
+    {
+        var package = subscription.Package;
+        var features = package == null
+            ? []
+            : PackageFeatureHelper.SplitFeatureLines(package.FeatureLines);
+        if (features.Count == 0)
+            features = PackageCatalog.Find(package?.PackageName)?.FeatureLines.ToList() ?? [];
+
+        return new OwnerSubscriptionDto
         {
             SubscriptionId = subscription.SubscriptionId,
             PackageId = subscription.PackageId,
-            PackageName = subscription.Package?.PackageName,
+            PackageName = package?.PackageName,
             Status = subscription.Status,
             StartDate = subscription.StartDate,
             EndDate = subscription.EndDate,
-            Features = PackageCatalog.Find(subscription.Package?.PackageName)?.FeatureLines.ToList() ?? []
+            Features = features
         };
+    }
 }

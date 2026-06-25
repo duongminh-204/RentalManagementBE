@@ -19,11 +19,14 @@ public interface IAdminRepository
     Task<Package?> GetPackageByIdAsync(int packageId);
     Task AddPackageAsync(Package package);
     Task DeletePackageAsync(Package package);
+    Task<bool> PackageHasSubscriptionsAsync(int packageId);
 
     Task<(List<AdminSubscriptionDto> Items, int Total)> GetSubscriptionsAsync(string? status, string? search, int page, int pageSize);
+    Task<(List<AdminOwnerSubscriptionsGroupDto> Items, int Total)> GetSubscriptionsGroupedByOwnerAsync(string? status, string? search, int page, int pageSize);
     Task<Subscription?> GetSubscriptionByIdAsync(int subscriptionId);
     Task<Subscription?> GetActiveSubscriptionAsync(int ownerUserId);
     Task AddSubscriptionAsync(Subscription subscription);
+    Task DeleteSubscriptionAsync(Subscription subscription);
     Task ExpireSubscriptionsAsync();
 
     Task<(List<AdminPaymentDto> Items, int Total)> GetPaymentsAsync(string? status, int? ownerId, DateTime? from, DateTime? to, int page, int pageSize);

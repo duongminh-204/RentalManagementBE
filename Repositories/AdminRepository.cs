@@ -3,6 +3,7 @@ using Backend.Data;
 using Backend.DTOs.Admin;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
+using Backend.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Repositories;
@@ -369,6 +370,10 @@ public class AdminRepository : IAdminRepository
                 Price = p.Price,
                 MaxRooms = p.MaxRooms,
                 Description = p.Description,
+                RoomRange = p.RoomRange,
+                TargetAudience = p.TargetAudience,
+                IsRecommended = p.IsRecommended,
+                Features = PackageFeatureHelper.SplitFeatureLines(p.FeatureLines),
                 IsEnabled = p.IsEnabled,
                 SubscriberCount = p.Subscriptions.Count(s => s.Status == "Active" && s.EndDate >= DateTime.Now)
             })
@@ -391,6 +396,9 @@ public class AdminRepository : IAdminRepository
         _context.Packages.Remove(package);
         await _context.SaveChangesAsync();
     }
+
+    public Task<bool> PackageHasSubscriptionsAsync(int packageId) =>
+        _context.Subscriptions.AnyAsync(s => s.PackageId == packageId);
 
     public async Task<(List<AdminSubscriptionDto> Items, int Total)> GetSubscriptionsAsync(string? status, string? search, int page, int pageSize)
     {
@@ -433,7 +441,79 @@ public class AdminRepository : IAdminRepository
                 EndDate = s.EndDate,
                 Status = s.Status,
                 OwnerRoomCount = roomCount,
-                MaxRooms = s.Package.MaxRooms
+                MaxRooms = s.Package.MaxRooms,
+                CreatedAt = s.CreatedAt
+            });
+        }
+
+        return (items, total);
+    }
+
+    public async Task<(List<AdminOwnerSubscriptionsGroupDto> Items, int Total)> GetSubscriptionsGroupedByOwnerAsync(string? status, string? search, int page, int pageSize)
+    {
+        var filteredQuery = _context.Subscriptions
+            .AsNoTracking()
+            .Include(s => s.Owner)
+            .Include(s => s.Package)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+            filteredQuery = filteredQuery.Where(s => s.Status == status);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            filteredQuery = filteredQuery.Where(s =>
+                s.Owner.FullName.Contains(term) ||
+                (s.Owner.Email != null && s.Owner.Email.Contains(term)));
+        }
+
+        var ownerIds = await filteredQuery
+            .GroupBy(s => s.OwnerUserId)
+            .OrderByDescending(g => g.Max(s => s.CreatedAt))
+            .Select(g => g.Key)
+            .ToListAsync();
+
+        var total = ownerIds.Count;
+        var pagedOwnerIds = ownerIds
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        var items = new List<AdminOwnerSubscriptionsGroupDto>();
+        foreach (var ownerId in pagedOwnerIds)
+        {
+            var subs = await _context.Subscriptions
+                .AsNoTracking()
+                .Include(s => s.Owner)
+                .Include(s => s.Package)
+                .Where(s => s.OwnerUserId == ownerId)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+
+            if (subs.Count == 0) continue;
+
+            var roomCount = await GetOwnerRoomCountAsync(ownerId);
+            items.Add(new AdminOwnerSubscriptionsGroupDto
+            {
+                OwnerId = ownerId,
+                OwnerName = subs[0].Owner.FullName,
+                OwnerEmail = subs[0].Owner.Email,
+                OwnerRoomCount = roomCount,
+                Subscriptions = subs.Select(s => new AdminSubscriptionDto
+                {
+                    SubscriptionId = s.SubscriptionId,
+                    OwnerId = s.OwnerUserId,
+                    OwnerName = s.Owner.FullName,
+                    PackageId = s.PackageId,
+                    PackageName = s.Package.PackageName,
+                    StartDate = s.StartDate,
+                    EndDate = s.EndDate,
+                    Status = s.Status,
+                    OwnerRoomCount = roomCount,
+                    MaxRooms = s.Package.MaxRooms,
+                    CreatedAt = s.CreatedAt
+                }).ToList()
             });
         }
 
@@ -456,6 +536,18 @@ public class AdminRepository : IAdminRepository
     public async Task AddSubscriptionAsync(Subscription subscription)
     {
         _context.Subscriptions.Add(subscription);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteSubscriptionAsync(Subscription subscription)
+    {
+        var payments = await _context.SubscriptionPayments
+            .Where(p => p.SubscriptionId == subscription.SubscriptionId)
+            .ToListAsync();
+        if (payments.Count > 0)
+            _context.SubscriptionPayments.RemoveRange(payments);
+
+        _context.Subscriptions.Remove(subscription);
         await _context.SaveChangesAsync();
     }
 

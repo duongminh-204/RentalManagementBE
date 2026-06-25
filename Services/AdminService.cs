@@ -171,6 +171,7 @@ public class AdminService : IAdminService
     {
         var owner = await _repo.GetOwnerEntityAsync(ownerId) ?? throw new KeyNotFoundException();
         owner.IsActive = false;
+        owner.IsSuspended = false;
         owner.UpdatedAt = DateTime.Now;
         await _repo.SaveChangesAsync();
         await _auditLog.LogAsync(adminUserId, "Update", "Owner", ownerId, "Locked", ip);
@@ -181,6 +182,7 @@ public class AdminService : IAdminService
     {
         var owner = await _repo.GetOwnerEntityAsync(ownerId) ?? throw new KeyNotFoundException();
         owner.IsActive = true;
+        owner.IsSuspended = false;
         owner.UpdatedAt = DateTime.Now;
         await _repo.SaveChangesAsync();
         await _auditLog.LogAsync(adminUserId, "Update", "Owner", ownerId, "Unlocked", ip);
@@ -206,6 +208,10 @@ public class AdminService : IAdminService
             Price = dto.Price,
             MaxRooms = dto.MaxRooms,
             Description = dto.Description?.Trim(),
+            RoomRange = dto.RoomRange?.Trim(),
+            TargetAudience = dto.TargetAudience?.Trim(),
+            IsRecommended = dto.IsRecommended,
+            FeatureLines = PackageFeatureHelper.JoinFeatureLines(dto.Features),
             IsEnabled = true,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now
@@ -222,6 +228,10 @@ public class AdminService : IAdminService
                 Price = package.Price,
                 MaxRooms = package.MaxRooms,
                 Description = package.Description,
+                RoomRange = package.RoomRange,
+                TargetAudience = package.TargetAudience,
+                IsRecommended = package.IsRecommended,
+                Features = PackageFeatureHelper.SplitFeatureLines(package.FeatureLines),
                 IsEnabled = package.IsEnabled
             };
     }
@@ -233,6 +243,10 @@ public class AdminService : IAdminService
         package.Price = dto.Price;
         package.MaxRooms = dto.MaxRooms;
         package.Description = dto.Description?.Trim();
+        package.RoomRange = dto.RoomRange?.Trim();
+        package.TargetAudience = dto.TargetAudience?.Trim();
+        package.IsRecommended = dto.IsRecommended;
+        package.FeatureLines = PackageFeatureHelper.JoinFeatureLines(dto.Features);
         package.UpdatedAt = DateTime.Now;
         await _repo.SaveChangesAsync();
         await _auditLog.LogAsync(adminUserId, "Update", "Package", packageId, null, ip);
@@ -262,6 +276,16 @@ public class AdminService : IAdminService
         return items.First(p => p.PackageId == packageId);
     }
 
+    public async Task DeletePackageAsync(int packageId, int? adminUserId, string? ip)
+    {
+        var package = await _repo.GetPackageByIdAsync(packageId) ?? throw new KeyNotFoundException();
+        if (await _repo.PackageHasSubscriptionsAsync(packageId))
+            throw new InvalidOperationException("Không thể xóa gói đang có người đăng ký.");
+
+        await _repo.DeletePackageAsync(package);
+        await _auditLog.LogAsync(adminUserId, "Delete", "Package", packageId, package.PackageName, ip);
+    }
+
     public async Task<PagedResultDto<AdminSubscriptionDto>> GetSubscriptionsAsync(string? status, string? search, int page, int pageSize)
     {
         await _repo.ExpireSubscriptionsAsync();
@@ -269,6 +293,15 @@ public class AdminService : IAdminService
         pageSize = Math.Clamp(pageSize, 1, 100);
         var (items, total) = await _repo.GetSubscriptionsAsync(status, search, page, pageSize);
         return new PagedResultDto<AdminSubscriptionDto> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+    }
+
+    public async Task<PagedResultDto<AdminOwnerSubscriptionsGroupDto>> GetSubscriptionsGroupedByOwnerAsync(string? status, string? search, int page, int pageSize)
+    {
+        await _repo.ExpireSubscriptionsAsync();
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var (items, total) = await _repo.GetSubscriptionsGroupedByOwnerAsync(status, search, page, pageSize);
+        return new PagedResultDto<AdminOwnerSubscriptionsGroupDto> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 
     public async Task<AdminSubscriptionDto> UpgradeSubscriptionAsync(int subscriptionId, ChangePackageDto dto, int? adminUserId, string? ip)
@@ -346,6 +379,17 @@ public class AdminService : IAdminService
         return items.First(s => s.SubscriptionId == subscriptionId);
     }
 
+    public async Task DeleteSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip)
+    {
+        var sub = await _repo.GetSubscriptionByIdAsync(subscriptionId) ?? throw new KeyNotFoundException();
+        if (sub.Status == "Active")
+            throw new InvalidOperationException("Không thể xóa gói đang hoạt động. Hãy hủy đăng ký trước.");
+
+        await _repo.DeleteSubscriptionAsync(sub);
+        await _auditLog.LogAsync(adminUserId, "Delete", "Subscription", subscriptionId,
+            $"{sub.Package.PackageName} — {sub.Owner.FullName}", ip);
+    }
+
     public async Task<PagedResultDto<AdminPaymentDto>> GetPaymentsAsync(string? status, int? ownerId, DateTime? from, DateTime? to, int page, int pageSize)
     {
         page = Math.Max(1, page);
@@ -403,6 +447,7 @@ public class AdminService : IAdminService
     {
         var user = await _repo.GetUserByIdAsync(userId) ?? throw new KeyNotFoundException();
         user.IsActive = true;
+        user.IsSuspended = false;
         user.UpdatedAt = DateTime.Now;
         await _repo.SaveChangesAsync();
         await _auditLog.LogAsync(adminUserId, "Update", "User", userId, "Enabled", ip);
@@ -415,6 +460,7 @@ public class AdminService : IAdminService
         if (await _userRoleService.IsInRoleAsync(user, RoleNames.Admin))
             throw new InvalidOperationException("Không thể vô hiệu hóa tài khoản Admin.");
         user.IsActive = false;
+        user.IsSuspended = false;
         user.UpdatedAt = DateTime.Now;
         await _repo.SaveChangesAsync();
         await _auditLog.LogAsync(adminUserId, "Update", "User", userId, "Disabled", ip);

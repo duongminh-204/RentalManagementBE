@@ -22,13 +22,16 @@ public interface IAdminService
     Task<AdminPackageDto> UpdatePackageAsync(int packageId, UpdatePackageDto dto, int? adminUserId, string? ip);
     Task<AdminPackageDto> EnablePackageAsync(int packageId, int? adminUserId, string? ip);
     Task<AdminPackageDto> DisablePackageAsync(int packageId, int? adminUserId, string? ip);
+    Task DeletePackageAsync(int packageId, int? adminUserId, string? ip);
 
     Task<PagedResultDto<AdminSubscriptionDto>> GetSubscriptionsAsync(string? status, string? search, int page, int pageSize);
+    Task<PagedResultDto<AdminOwnerSubscriptionsGroupDto>> GetSubscriptionsGroupedByOwnerAsync(string? status, string? search, int page, int pageSize);
     Task<AdminSubscriptionDto> UpgradeSubscriptionAsync(int subscriptionId, ChangePackageDto dto, int? adminUserId, string? ip);
     Task<AdminSubscriptionDto> DowngradeSubscriptionAsync(int subscriptionId, ChangePackageDto dto, int? adminUserId, string? ip);
     Task<AdminSubscriptionDto> RenewSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip);
     Task<AdminSubscriptionDto> CancelSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip);
     Task<AdminSubscriptionDto> ActivateSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip);
+    Task DeleteSubscriptionAsync(int subscriptionId, int? adminUserId, string? ip);
 
     Task<PagedResultDto<AdminPaymentDto>> GetPaymentsAsync(string? status, int? ownerId, DateTime? from, DateTime? to, int page, int pageSize);
     Task<RevenueReportDto> GetRevenueReportAsync(DateTime? from, DateTime? to);

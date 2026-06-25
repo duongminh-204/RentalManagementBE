@@ -63,6 +63,18 @@ public class AdminPackagesController : ControllerBase
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            await _adminService.DeletePackageAsync(id, GetUserId(), GetIp());
+            return NoContent();
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     private int? GetUserId()
     {
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);

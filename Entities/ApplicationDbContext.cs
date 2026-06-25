@@ -568,6 +568,9 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
             entity.HasKey(x => x.PackageId);
             entity.Property(x => x.PackageName).IsRequired().HasMaxLength(100);
             entity.Property(x => x.Description).HasMaxLength(500);
+            entity.Property(x => x.RoomRange).HasMaxLength(100);
+            entity.Property(x => x.TargetAudience).HasMaxLength(200);
+            entity.Property(x => x.FeatureLines).HasColumnType("nvarchar(max)");
             entity.Property(x => x.Price).HasColumnType("decimal(18,2)");
             entity.Property(x => x.IsEnabled).HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");

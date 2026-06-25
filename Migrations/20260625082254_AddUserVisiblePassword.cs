@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Backend.Migrations
+namespace RentalManagementBE.Migrations
 {
     /// <inheritdoc />
     public partial class AddUserVisiblePassword : Migration

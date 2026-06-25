@@ -92,6 +92,10 @@ public class AdminPackageDto
     public decimal Price { get; set; }
     public int MaxRooms { get; set; }
     public string? Description { get; set; }
+    public string? RoomRange { get; set; }
+    public string? TargetAudience { get; set; }
+    public bool IsRecommended { get; set; }
+    public List<string> Features { get; set; } = [];
     public bool IsEnabled { get; set; }
     public int SubscriberCount { get; set; }
 }
@@ -102,6 +106,10 @@ public class CreatePackageDto
     public decimal Price { get; set; }
     public int MaxRooms { get; set; }
     public string? Description { get; set; }
+    public string? RoomRange { get; set; }
+    public string? TargetAudience { get; set; }
+    public bool IsRecommended { get; set; }
+    public List<string>? Features { get; set; }
 }
 
 public class UpdatePackageDto : CreatePackageDto { }
@@ -119,6 +127,16 @@ public class AdminSubscriptionDto
     public string Status { get; set; } = string.Empty;
     public int OwnerRoomCount { get; set; }
     public int MaxRooms { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AdminOwnerSubscriptionsGroupDto
+{
+    public int OwnerId { get; set; }
+    public string OwnerName { get; set; } = string.Empty;
+    public string? OwnerEmail { get; set; }
+    public int OwnerRoomCount { get; set; }
+    public List<AdminSubscriptionDto> Subscriptions { get; set; } = [];
 }
 
 public class ChangePackageDto

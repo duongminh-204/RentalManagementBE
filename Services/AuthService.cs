@@ -56,21 +56,12 @@ namespace Backend.Services
                 };
             }
 
-            if (!user.IsActive)
+            if (!user.IsActive || user.IsSuspended)
             {
                 return new AuthResponseDto
                 {
                     IsSuccess = false,
                     Message = "Tài khoản của bạn đã bị khóa."
-                };
-            }
-
-            if (user.IsSuspended)
-            {
-                return new AuthResponseDto
-                {
-                    IsSuccess = false,
-                    Message = "Tài khoản của bạn đã bị tạm ngưng."
                 };
             }
 
@@ -231,7 +222,7 @@ namespace Backend.Services
 
                 await _userManager.AddToRoleAsync(user, RoleNames.Tenant);
             }
-            else if (!user.IsActive)
+            else if (!user.IsActive || user.IsSuspended)
             {
                 return new AuthResponseDto
                 {

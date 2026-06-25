@@ -27,6 +27,14 @@ public class AdminSubscriptionsController : ControllerBase
         [FromQuery] int pageSize = 10)
         => Ok(await _adminService.GetSubscriptionsAsync(status, search, page, pageSize));
 
+    [HttpGet("grouped")]
+    public async Task<ActionResult<PagedResultDto<AdminOwnerSubscriptionsGroupDto>>> GetGrouped(
+        [FromQuery] string? status,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+        => Ok(await _adminService.GetSubscriptionsGroupedByOwnerAsync(status, search, page, pageSize));
+
     [HttpPost("{id}/upgrade")]
     public async Task<ActionResult<AdminSubscriptionDto>> Upgrade(int id, [FromBody] ChangePackageDto dto)
     {
@@ -64,6 +72,18 @@ public class AdminSubscriptionsController : ControllerBase
     {
         try { return Ok(await _adminService.CancelSubscriptionAsync(id, GetUserId(), GetIp())); }
         catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            await _adminService.DeleteSubscriptionAsync(id, GetUserId(), GetIp());
+            return NoContent();
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     private int? GetUserId()
