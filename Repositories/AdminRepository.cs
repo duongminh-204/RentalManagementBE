@@ -791,6 +791,25 @@ public class AdminRepository : IAdminRepository
         return (items, total);
     }
 
+    public async Task<int> ClearAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to)
+    {
+        var query = _context.AuditLogs.AsQueryable();
+
+        if (userId.HasValue) query = query.Where(a => a.UserId == userId.Value);
+        if (!string.IsNullOrWhiteSpace(action)) query = query.Where(a => a.Action == action);
+        if (!string.IsNullOrWhiteSpace(entity)) query = query.Where(a => a.Entity == entity);
+        if (from.HasValue) query = query.Where(a => a.Timestamp >= from.Value);
+        if (to.HasValue) query = query.Where(a => a.Timestamp <= to.Value);
+
+        var logs = await query.ToListAsync();
+        if (logs.Count == 0)
+            return 0;
+
+        _context.AuditLogs.RemoveRange(logs);
+        await _context.SaveChangesAsync();
+        return logs.Count;
+    }
+
     public async Task AddAuditLogAsync(AuditLog log)
     {
         _context.AuditLogs.Add(log);

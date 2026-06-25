@@ -37,6 +37,7 @@ public interface IAdminRepository
     Task<User?> GetUserByIdAsync(int userId);
 
     Task<(List<AdminAuditLogDto> Items, int Total)> GetAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to, int page, int pageSize);
+    Task<int> ClearAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to);
     Task AddAuditLogAsync(AuditLog log);
 
     Task<int> CountTenantsAsync();

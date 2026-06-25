@@ -3,6 +3,7 @@ using Backend.DTOs.Admin;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Backend.Controllers;
 
@@ -28,4 +29,24 @@ public class AdminAuditLogsController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
         => Ok(await _adminService.GetAuditLogsAsync(userId, action, entity, from, to, page, pageSize));
+
+    [HttpDelete]
+    public async Task<ActionResult<object>> Clear(
+        [FromQuery] int? userId,
+        [FromQuery] string? action,
+        [FromQuery] string? entity,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to)
+    {
+        var deletedCount = await _adminService.ClearAuditLogsAsync(userId, action, entity, from, to, GetUserId(), GetIp());
+        return Ok(new { deletedCount });
+    }
+
+    private int? GetUserId()
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out var id) ? id : null;
+    }
+
+    private string? GetIp() => HttpContext.Connection.RemoteIpAddress?.ToString();
 }

@@ -47,6 +47,7 @@ public interface IAdminService
     Task DeleteUserAsync(int userId, int? adminUserId, string? ip);
 
     Task<PagedResultDto<AdminAuditLogDto>> GetAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to, int page, int pageSize);
+    Task<int> ClearAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to, int? adminUserId, string? ip);
 
     Task<PlatformPaymentSettingDto> GetPlatformPaymentSettingsAsync();
     Task<PlatformPaymentSettingDto> UpdatePlatformPaymentSettingsAsync(UpdatePlatformPaymentSettingDto dto, int? adminUserId, string? ip);

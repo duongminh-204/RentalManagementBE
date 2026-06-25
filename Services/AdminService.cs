@@ -548,6 +548,27 @@ public class AdminService : IAdminService
         return new PagedResultDto<AdminAuditLogDto> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 
+    public async Task<int> ClearAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to, int? adminUserId, string? ip)
+    {
+        var deletedCount = await _repo.ClearAuditLogsAsync(userId, action, entity, from, to);
+
+        var filterParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(action)) filterParts.Add($"action={action}");
+        if (!string.IsNullOrWhiteSpace(entity)) filterParts.Add($"entity={entity}");
+        if (from.HasValue) filterParts.Add($"from={from:yyyy-MM-dd}");
+        if (to.HasValue) filterParts.Add($"to={to:yyyy-MM-dd}");
+        if (userId.HasValue) filterParts.Add($"userId={userId.Value}");
+
+        var details = deletedCount > 0
+            ? $"Cleared {deletedCount} audit log(s)"
+            : "No audit logs matched filters";
+        if (filterParts.Count > 0)
+            details += $" ({string.Join(", ", filterParts)})";
+
+        await _auditLog.LogAsync(adminUserId, "Delete", "AuditLog", null, details, ip);
+        return deletedCount;
+    }
+
     private async Task<AdminSubscriptionDto> ChangeOwnerPackageAsync(int ownerUserId, int packageId, int? adminUserId, string? ip, bool isUpgrade, Subscription? existingSub = null)
     {
         var package = await _repo.GetPackageByIdAsync(packageId)
