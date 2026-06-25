@@ -18,9 +18,16 @@ public sealed class JsonAuthorizationMiddlewareResultHandler : IAuthorizationMid
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";
 
-            var message = context.User.Identity?.IsAuthenticated == true
-                ? "Tính năng này chưa được mở trong gói dịch vụ của bạn. Vui lòng nâng cấp gói hoặc liên hệ quản trị viên."
-                : "Bạn không có quyền truy cập tính năng này.";
+            var path = context.Request.Path.Value ?? string.Empty;
+            var isSubscriptionApi = path.StartsWith("/api/subscriptions", StringComparison.OrdinalIgnoreCase);
+            var failedRequirements = authorizeResult.AuthorizationFailure?.FailedRequirements;
+            var failedSubscriptionTier = failedRequirements?.Any(r => r is ActiveSubscriptionRequirement or PackageFeatureRequirement) == true;
+
+            var message = context.User.Identity?.IsAuthenticated != true
+                ? "Bạn không có quyền truy cập tính năng này."
+                : isSubscriptionApi && !failedSubscriptionTier
+                    ? "Bạn không có quyền quản lý gói dịch vụ với tài khoản này."
+                    : "Tính năng này chưa được mở trong gói dịch vụ của bạn. Vui lòng nâng cấp gói hoặc liên hệ quản trị viên.";
 
             await context.Response.WriteAsJsonAsync(new
             {

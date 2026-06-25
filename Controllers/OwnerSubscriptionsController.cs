@@ -10,7 +10,7 @@ namespace Backend.Controllers;
 
 [Route("api/subscriptions")]
 [ApiController]
-[Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
+[Authorize(Policy = AuthorizationPolicies.OwnerOnly)]
 public class OwnerSubscriptionsController : ControllerBase
 {
     private readonly ISubscriptionService _subscriptionService;

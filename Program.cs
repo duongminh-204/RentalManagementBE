@@ -195,6 +195,37 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RoleClaimType = ClaimTypes.Role,
             ClockSkew = TimeSpan.Zero
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var userId = AuthorizationClaimExtensions.GetUserId(context.Principal!);
+                if (userId is null)
+                {
+                    context.Fail("Invalid token.");
+                    return;
+                }
+
+                await using var scope = context.HttpContext.RequestServices.CreateAsyncScope();
+                var db = scope.ServiceProvider.GetRequiredService<RentalManagementDb>();
+
+                var account = await db.Users
+                    .AsNoTracking()
+                    .Where(u => u.Id == userId.Value)
+                    .Select(u => new { u.IsActive, u.IsSuspended })
+                    .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+
+                if (account is null)
+                {
+                    context.Fail("Tài khoản không tồn tại hoặc phiên đăng nhập đã hết hạn.");
+                    return;
+                }
+
+                if (!account.IsActive || account.IsSuspended)
+                    context.Fail("Tài khoản đã bị khóa hoặc tạm ngưng.");
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>
