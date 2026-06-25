@@ -1,10 +1,13 @@
 using Backend.Authorization;
+using Backend.Data;
 using Backend.DTOs.Admin;
+using Backend.DTOs.Package;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
 using Backend.Services.Interfaces;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 
 namespace Backend.Services;
@@ -16,19 +19,22 @@ public class AdminService : IAdminService
     private readonly IAuditLogService _auditLog;
     private readonly UserManager<User> _userManager;
     private readonly IUserRoleService _userRoleService;
+    private readonly RentalManagementDb _context;
 
     public AdminService(
         IAdminRepository repo,
         IUserRepository userRepository,
         IAuditLogService auditLog,
         UserManager<User> userManager,
-        IUserRoleService userRoleService)
+        IUserRoleService userRoleService,
+        RentalManagementDb context)
     {
         _repo = repo;
         _userRepository = userRepository;
         _auditLog = auditLog;
         _userManager = userManager;
         _userRoleService = userRoleService;
+        _context = context;
     }
 
     public async Task<AdminDashboardSummaryDto> GetDashboardSummaryAsync()
@@ -634,4 +640,58 @@ public class AdminService : IAdminService
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
         return new string(Enumerable.Range(0, 10).Select(_ => chars[RandomNumberGenerator.GetInt32(chars.Length)]).ToArray());
     }
+
+    public async Task<PlatformPaymentSettingDto> GetPlatformPaymentSettingsAsync()
+    {
+        var settings = await _context.PlatformPaymentSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == 1);
+
+        return settings == null
+            ? new PlatformPaymentSettingDto()
+            : MapPlatformPaymentSetting(settings);
+    }
+
+    public async Task<PlatformPaymentSettingDto> UpdatePlatformPaymentSettingsAsync(
+        UpdatePlatformPaymentSettingDto dto,
+        int? adminUserId,
+        string? ip)
+    {
+        if (string.IsNullOrWhiteSpace(dto.BankName) ||
+            string.IsNullOrWhiteSpace(dto.BankId) ||
+            string.IsNullOrWhiteSpace(dto.AccountNumber) ||
+            string.IsNullOrWhiteSpace(dto.AccountName))
+        {
+            throw new InvalidOperationException("Vui lòng nhập đầy đủ thông tin tài khoản ngân hàng.");
+        }
+
+        var settings = await _context.PlatformPaymentSettings.FirstOrDefaultAsync(s => s.Id == 1);
+        if (settings == null)
+        {
+            settings = new PlatformPaymentSetting { Id = 1 };
+            _context.PlatformPaymentSettings.Add(settings);
+        }
+
+        settings.BankName = dto.BankName.Trim();
+        settings.BankId = dto.BankId.Trim();
+        settings.AccountNumber = dto.AccountNumber.Trim();
+        settings.AccountName = dto.AccountName.Trim();
+        settings.IsConfigured = true;
+        settings.UpdatedAt = DateTime.Now;
+
+        await _context.SaveChangesAsync();
+        await _auditLog.LogAsync(adminUserId, "Update", "PlatformPaymentSetting", 1, settings.BankName, ip);
+
+        return MapPlatformPaymentSetting(settings);
+    }
+
+    private static PlatformPaymentSettingDto MapPlatformPaymentSetting(PlatformPaymentSetting settings) => new()
+    {
+        BankName = settings.BankName,
+        BankId = settings.BankId,
+        AccountNumber = settings.AccountNumber,
+        AccountName = settings.AccountName,
+        IsConfigured = settings.IsConfigured,
+        UpdatedAt = settings.UpdatedAt
+    };
 }

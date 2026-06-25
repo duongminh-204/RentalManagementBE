@@ -31,6 +31,7 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
     public DbSet<Package> Packages { get; set; }
     public DbSet<Subscription> Subscriptions { get; set; }
     public DbSet<SubscriptionPayment> SubscriptionPayments { get; set; }
+    public DbSet<PlatformPaymentSetting> PlatformPaymentSettings { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -590,6 +591,10 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
             entity.HasIndex(x => x.Status);
             entity.HasIndex(x => x.EndDate);
+            entity.Property(x => x.PaymentReference).HasMaxLength(30);
+            entity.HasIndex(x => x.PaymentReference)
+                .IsUnique()
+                .HasFilter("[PaymentReference] IS NOT NULL");
             entity.HasOne(x => x.Owner)
                 .WithMany(x => x.Subscriptions)
                 .HasForeignKey(x => x.OwnerUserId)
@@ -611,6 +616,10 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
             entity.Property(x => x.PaymentMethod).IsRequired().HasMaxLength(50);
             entity.Property(x => x.Status).IsRequired().HasMaxLength(20).HasDefaultValue("Success");
             entity.Property(x => x.PaymentDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.ExternalTransactionId).HasMaxLength(100);
+            entity.HasIndex(x => x.ExternalTransactionId)
+                .IsUnique()
+                .HasFilter("[ExternalTransactionId] IS NOT NULL");
             entity.HasIndex(x => x.PaymentDate);
             entity.HasOne(x => x.Owner)
                 .WithMany(x => x.SubscriptionPayments)
@@ -620,6 +629,20 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
                 .WithMany(x => x.Payments)
                 .HasForeignKey(x => x.SubscriptionId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // =========================
+        // Platform payment (Admin VietQR)
+        // =========================
+        modelBuilder.Entity<PlatformPaymentSetting>(entity =>
+        {
+            entity.ToTable("PlatformPaymentSettings");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.BankName).IsRequired().HasMaxLength(50);
+            entity.Property(x => x.BankId).IsRequired().HasMaxLength(20);
+            entity.Property(x => x.AccountNumber).IsRequired().HasMaxLength(30);
+            entity.Property(x => x.AccountName).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
         });
 
         // =========================

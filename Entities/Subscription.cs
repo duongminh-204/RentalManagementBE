@@ -18,6 +18,10 @@ public class Subscription
     [MaxLength(20)]
     public string Status { get; set; } = "Active";
 
+    /// <summary>Mã tham chiếu chuyển khoản (vd: DK42) — dùng trong nội dung VietQR.</summary>
+    [MaxLength(30)]
+    public string? PaymentReference { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;

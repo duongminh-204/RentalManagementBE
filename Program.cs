@@ -35,6 +35,7 @@ builder.Services.AddMemoryCache();
 
 // ====================== COMFYUI (AI DECOR) ======================
 builder.Services.Configure<ComfyUIOptions>(builder.Configuration.GetSection(ComfyUIOptions.SectionName));
+builder.Services.Configure<BankWebhookOptions>(builder.Configuration.GetSection(BankWebhookOptions.SectionName));
 builder.Services.AddHttpClient<IComfyUIService, ComfyUIService>((sp, client) =>
 {
     var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ComfyUIOptions>>().Value;

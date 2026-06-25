@@ -22,6 +22,10 @@ public class SubscriptionPayment
     [MaxLength(20)]
     public string Status { get; set; } = "Success";
 
+    /// <summary>ID giao dịch từ ngân hàng / SePay / Casso — chống xử lý trùng.</summary>
+    [MaxLength(100)]
+    public string? ExternalTransactionId { get; set; }
+
     public User Owner { get; set; } = null!;
 
     public Subscription Subscription { get; set; } = null!;
