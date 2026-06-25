@@ -659,14 +659,16 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
             entity.HasIndex(x => new { x.OwnerUserId, x.Feature }).IsUnique();
+            // SQL Server disallows multiple cascade paths to Users (OwnerUserId + GrantedByUserId).
+            // Grants are removed in AdminRepository before owner deletion.
             entity.HasOne(x => x.Owner)
                 .WithMany(x => x.FeatureGrants)
                 .HasForeignKey(x => x.OwnerUserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(x => x.GrantedBy)
                 .WithMany(x => x.GrantedFeatureGrants)
                 .HasForeignKey(x => x.GrantedByUserId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         // =========================

@@ -1588,12 +1588,12 @@ namespace RentalManagementBE.Migrations
                     b.HasOne("Backend.Entities.User", "GrantedBy")
                         .WithMany("GrantedFeatureGrants")
                         .HasForeignKey("GrantedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Backend.Entities.User", "Owner")
                         .WithMany("FeatureGrants")
                         .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("GrantedBy");
