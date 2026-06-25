@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using Backend.DTOs.Invoices;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace Backend.Controllers;
 
 [Route("api/invoices")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
 public class InvoiceController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;

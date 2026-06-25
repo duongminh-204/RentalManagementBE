@@ -1,17 +1,16 @@
 using Backend.Entities;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
 namespace Backend.Data;
 
-public class RentalManagementDb : DbContext
+public class RentalManagementDb : IdentityDbContext<User, Role, int>
 {
     public RentalManagementDb(DbContextOptions<RentalManagementDb> options) : base(options)
     {
     }
 
-    public DbSet<Role> Roles { get; set; }
-    public DbSet<User> Users { get; set; }
     public DbSet<Tenant> Tenants { get; set; }
     public DbSet<Building> Buildings { get; set; }
     public DbSet<Room> Rooms { get; set; }
@@ -29,6 +28,10 @@ public class RentalManagementDb : DbContext
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<Expense> Expenses { get; set; }
     public DbSet<Post> Posts { get; set; }
+    public DbSet<Package> Packages { get; set; }
+    public DbSet<Subscription> Subscriptions { get; set; }
+    public DbSet<SubscriptionPayment> SubscriptionPayments { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,33 +40,28 @@ public class RentalManagementDb : DbContext
         ConfigureDecimalPrecision(modelBuilder);
 
         // =========================
-        // Roles
-        // =========================
-        modelBuilder.Entity<Role>()
-            .HasIndex(x => x.Name)
-            .IsUnique();
-
-        // =========================
-        // Users - ĐÃ SỬA & TỐI ƯU
+        // Users (ASP.NET Core Identity)
         // =========================
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("Users");
+            entity.Property(x => x.Id).HasColumnName("UserId");
 
-            entity.HasKey(x => x.UserId);
-
-            // Required fields
             entity.Property(x => x.FullName)
                   .IsRequired()
                   .HasMaxLength(100);
 
-            entity.Property(x => x.PasswordHash)
-                  .IsRequired()
-                  .HasMaxLength(255);
-
-            // Optional fields with max length
             entity.Property(x => x.Email)
-                  .HasMaxLength(100);
+                  .HasMaxLength(256);
+
+            entity.Property(x => x.NormalizedEmail)
+                  .HasMaxLength(256);
+
+            entity.Property(x => x.UserName)
+                  .HasMaxLength(256);
+
+            entity.Property(x => x.NormalizedUserName)
+                  .HasMaxLength(256);
 
             entity.Property(x => x.PhoneNumber)
                   .HasMaxLength(20);
@@ -80,9 +78,11 @@ public class RentalManagementDb : DbContext
             entity.Property(x => x.CCCDImage)
                   .HasMaxLength(500);
 
-            // Default values
             entity.Property(x => x.IsActive)
                   .HasDefaultValue(true);
+
+            entity.Property(x => x.IsSuspended)
+                  .HasDefaultValue(false);
 
             entity.Property(x => x.CreatedAt)
                   .HasDefaultValueSql("GETDATE()");
@@ -90,18 +90,23 @@ public class RentalManagementDb : DbContext
             entity.Property(x => x.UpdatedAt)
                   .HasDefaultValueSql("GETDATE()");
 
-            // Unique indexes
             entity.HasIndex(x => x.Email)
-                  .IsUnique();
+                  .IsUnique()
+                  .HasFilter("[Email] IS NOT NULL");
 
             entity.HasIndex(x => x.PhoneNumber)
-                  .IsUnique();
+                  .IsUnique()
+                  .HasFilter("[PhoneNumber] IS NOT NULL");
+        });
 
-            // Relationship
-            entity.HasOne(x => x.Role)
-                  .WithMany(x => x.Users)
-                  .HasForeignKey(x => x.RoleId)
-                  .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.ToTable("Roles");
+            entity.Property(x => x.Id).HasColumnName("RoleId");
+            entity.Property(x => x.Name).HasMaxLength(256);
+            entity.Property(x => x.NormalizedName).HasMaxLength(256);
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.HasIndex(x => x.NormalizedName).HasDatabaseName("RoleNameIndex").IsUnique();
         });
 
         // =========================
@@ -550,6 +555,86 @@ public class RentalManagementDb : DbContext
             .WithMany(x => x.Posts)
             .HasForeignKey(x => x.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // =========================
+        // Packages (SaaS plans)
+        // =========================
+        modelBuilder.Entity<Package>(entity =>
+        {
+            entity.ToTable("Packages");
+            entity.HasKey(x => x.PackageId);
+            entity.Property(x => x.PackageName).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.Property(x => x.Price).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.IsEnabled).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
+            entity.HasIndex(x => x.PackageName).IsUnique();
+        });
+
+        // =========================
+        // Subscriptions
+        // =========================
+        modelBuilder.Entity<Subscription>(entity =>
+        {
+            entity.ToTable("Subscriptions");
+            entity.HasKey(x => x.SubscriptionId);
+            entity.Property(x => x.Status).IsRequired().HasMaxLength(20).HasDefaultValue("Active");
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
+            entity.HasIndex(x => x.Status);
+            entity.HasIndex(x => x.EndDate);
+            entity.HasOne(x => x.Owner)
+                .WithMany(x => x.Subscriptions)
+                .HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Package)
+                .WithMany(x => x.Subscriptions)
+                .HasForeignKey(x => x.PackageId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // =========================
+        // Subscription Payments (SaaS billing)
+        // =========================
+        modelBuilder.Entity<SubscriptionPayment>(entity =>
+        {
+            entity.ToTable("SubscriptionPayments");
+            entity.HasKey(x => x.PaymentId);
+            entity.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(x => x.PaymentMethod).IsRequired().HasMaxLength(50);
+            entity.Property(x => x.Status).IsRequired().HasMaxLength(20).HasDefaultValue("Success");
+            entity.Property(x => x.PaymentDate).HasDefaultValueSql("GETDATE()");
+            entity.HasIndex(x => x.PaymentDate);
+            entity.HasOne(x => x.Owner)
+                .WithMany(x => x.SubscriptionPayments)
+                .HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Subscription)
+                .WithMany(x => x.Payments)
+                .HasForeignKey(x => x.SubscriptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // =========================
+        // Audit Logs
+        // =========================
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.ToTable("AuditLogs");
+            entity.HasKey(x => x.LogId);
+            entity.Property(x => x.Action).IsRequired().HasMaxLength(50);
+            entity.Property(x => x.Entity).HasMaxLength(100);
+            entity.Property(x => x.IPAddress).HasMaxLength(45);
+            entity.Property(x => x.Details).HasMaxLength(500);
+            entity.Property(x => x.Timestamp).HasDefaultValueSql("GETDATE()");
+            entity.HasIndex(x => x.Timestamp);
+            entity.HasIndex(x => x.Action);
+            entity.HasOne(x => x.User)
+                .WithMany(x => x.AuditLogs)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
     }
 
     private static void ConfigureDecimalPrecision(ModelBuilder modelBuilder)

@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using Backend.DTOs.Buildings;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace Backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
 public class BuildingController : ControllerBase
 {
     private readonly IBuildingService _buildingService;

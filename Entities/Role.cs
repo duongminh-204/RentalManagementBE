@@ -1,12 +1,18 @@
-﻿namespace Backend.Entities;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Identity;
 
-public class Role
+namespace Backend.Entities;
+
+public class Role : IdentityRole<int>
 {
-    public int RoleId { get; set; }
+    [NotMapped]
+    public int RoleId
+    {
+        get => Id;
+        set => Id = value;
+    }
 
-    public string Name { get; set; }
-
+    [MaxLength(500)]
     public string? Description { get; set; }
-
-    public ICollection<User> Users { get; set; }
 }

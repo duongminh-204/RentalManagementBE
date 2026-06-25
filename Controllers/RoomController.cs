@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using Backend.DTOs.Rooms;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
     public class RoomController : ControllerBase
     {
         private readonly IRoomService _roomService;

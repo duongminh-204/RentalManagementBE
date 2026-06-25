@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using Backend.Configuration;
 using Backend.Data;
 using Backend.Entities;
@@ -8,6 +9,7 @@ using Backend.Services;
 using Backend.Services.Interfaces;
 using Backend.Services.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -133,7 +135,27 @@ builder.Services.AddScoped<IExcelImportService, ExcelImportService>();
 builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 
-builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<IAdminRepository, AdminRepository>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IUserRoleService, UserRoleService>();
+
+builder.Services.AddScoped<IAuthorizationHandler, ActiveUserAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, NotSuspendedAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ActiveSubscriptionAuthorizationHandler>();
+
+builder.Services.AddIdentityCore<User>(options =>
+{
+    options.Password.RequiredLength = 6;
+    options.Password.RequireDigit = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireNonAlphanumeric = false;
+    options.User.RequireUniqueEmail = true;
+})
+.AddRoles<Role>()
+.AddEntityFrameworkStores<RentalManagementDb>()
+.AddDefaultTokenProviders();
 
 // ====================== JWT ======================
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -159,7 +181,35 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.AdminOnly, policy =>
+        policy.RequireRole(RoleNames.Admin));
+
+    options.AddPolicy(AuthorizationPolicies.OwnerOrAdmin, policy =>
+        policy.RequireRole(RoleNames.Admin, RoleNames.Owner));
+
+    options.AddPolicy(AuthorizationPolicies.OwnerOnly, policy =>
+        policy.RequireRole(RoleNames.Owner));
+
+    options.AddPolicy(AuthorizationPolicies.TenantOnly, policy =>
+        policy.RequireRole(RoleNames.Tenant));
+
+    options.AddPolicy(AuthorizationPolicies.ActiveUser, policy =>
+        policy.RequireAuthenticatedUser()
+            .AddRequirements(new ActiveUserRequirement()));
+
+    options.AddPolicy(AuthorizationPolicies.ActiveOwner, policy =>
+        policy.RequireRole(RoleNames.Owner)
+            .AddRequirements(new ActiveUserRequirement(), new NotSuspendedRequirement()));
+
+    options.AddPolicy(AuthorizationPolicies.ActiveOwnerSubscription, policy =>
+        policy.RequireRole(RoleNames.Owner)
+            .AddRequirements(
+                new ActiveUserRequirement(),
+                new NotSuspendedRequirement(),
+                new ActiveSubscriptionRequirement()));
+});
 
 var app = builder.Build();
 
@@ -181,72 +231,11 @@ using (var scope = app.Services.CreateScope())
 
     try
     {
-        // SEED DATA
-        if (!context.Roles.Any())
-        {
-            context.Roles.AddRange(
-                new Role { Name = "Admin", Description = "Admin hệ thống" },
-                new Role { Name = "Tenant", Description = "Người Thuê Trọ" },
-                new Role { Name = "Owner", Description = "Chủ Trọ" }
-            );
-
-            await context.SaveChangesAsync();
-            Console.WriteLine("Seed roles successfully.");
-        }
+        await DatabaseSeeder.SeedAsync(scope.ServiceProvider, builder.Configuration);
     }
     catch (Exception ex)
     {
         Console.WriteLine("Seed error: " + ex.Message);
-    }
-
-    if (builder.Configuration.GetValue<bool>("SeedCatalogs"))
-    {
-    try
-    {
-        // SEED DANH MỤC THIẾT BỊ (DeviceCatalog)
-        if (!context.DeviceCatalogs.Any())
-        {
-            context.DeviceCatalogs.AddRange(
-                new DeviceCatalog { Name = "Máy lạnh", Icon = "AirVent" },
-                new DeviceCatalog { Name = "Tủ lạnh", Icon = "Refrigerator" },
-                new DeviceCatalog { Name = "Máy giặt", Icon = "WashingMachine" },
-                new DeviceCatalog { Name = "Tivi", Icon = "Tv" },
-                new DeviceCatalog { Name = "Lò vi sóng", Icon = "Microwave" },
-                new DeviceCatalog { Name = "Quạt trần", Icon = "Fan" },
-                new DeviceCatalog { Name = "Đèn LED", Icon = "Lightbulb" },
-                new DeviceCatalog { Name = "Giường ngủ", Icon = "BedDouble" },
-                new DeviceCatalog { Name = "Ghế sofa", Icon = "Sofa" },
-                new DeviceCatalog { Name = "Tủ quần áo", Icon = "Shirt" },
-                new DeviceCatalog { Name = "Bình nóng lạnh", Icon = "Flame" },
-                new DeviceCatalog { Name = "Camera an ninh", Icon = "Cctv" },
-                new DeviceCatalog { Name = "Bàn làm việc", Icon = "Table" },
-                new DeviceCatalog { Name = "Khóa cửa thông minh", Icon = "Lock" }
-            );
-
-            await context.SaveChangesAsync();
-            Console.WriteLine("Seed device catalog successfully.");
-        }
-
-        // SEED DANH MỤC DỊCH VỤ (Service)
-        if (!context.Services.Any())
-        {
-            context.Services.AddRange(
-                new Service { ServiceName = "Internet cáp quang", Icon = "Wifi", UnitPrice = 150000m, BillingCycle = "Monthly", Unit = "tháng" },
-                new Service { ServiceName = "Dọn vệ sinh", Icon = "Sparkles", UnitPrice = 50000m, BillingCycle = "Monthly", Unit = "tháng" },
-                new Service { ServiceName = "Giữ xe", Icon = "Car", UnitPrice = 100000m, BillingCycle = "Monthly", Unit = "xe/tháng" },
-                new Service { ServiceName = "Giặt ủi", Icon = "WashingMachine", UnitPrice = 20000m, BillingCycle = "Monthly", Unit = "kg" },
-                new Service { ServiceName = "Nước uống", Icon = "Droplet", UnitPrice = 12000m, BillingCycle = "Monthly", Unit = "bình" },
-                new Service { ServiceName = "Bảo vệ 24/7", Icon = "ShieldCheck", UnitPrice = 0m, BillingCycle = "Monthly", Unit = "tháng" }
-            );
-
-            await context.SaveChangesAsync();
-            Console.WriteLine("Seed service catalog successfully.");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("Seed catalog error: " + ex.Message);
-    }
     }
 }
 

@@ -9,10 +9,12 @@ namespace Backend.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IAuditLogService _auditLogService;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, IAuditLogService auditLogService)
         {
             _authService = authService;
+            _auditLogService = auditLogService;
         }
 
         [HttpPost("login")]
@@ -22,6 +24,17 @@ namespace Backend.Controllers
                 return BadRequest(ModelState);
 
             var result = await _authService.LoginAsync(request);
+
+            if (result.IsSuccess && result.User != null)
+            {
+                await _auditLogService.LogAsync(
+                    result.User.UserId,
+                    "Login",
+                    "User",
+                    result.User.UserId,
+                    result.User.Email,
+                    HttpContext.Connection.RemoteIpAddress?.ToString());
+            }
 
             return result.IsSuccess
                 ? Ok(result)

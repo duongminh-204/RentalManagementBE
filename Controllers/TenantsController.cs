@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using Backend.DTOs.Tenants;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace Backend.Controllers;
 
 [Route("api/tenants")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
 public class TenantsController : ControllerBase
 {
     private readonly ITenantService _tenantService;

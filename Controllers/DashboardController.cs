@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using Backend.Services.Interfaces;
 using Backend.DTOs.Dashboard;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace Backend.Controllers;
 
 [Route("api/dashboard")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
 public class DashboardController : ControllerBase
 {
     private readonly IDashboardService _dashboardService;
@@ -101,7 +102,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpPost("import/template-file")]
-    [Authorize(Roles = "Admin,Owner")]
+    [Authorize(Policy = AuthorizationPolicies.OwnerOrAdmin)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> UploadTemplateFile(IFormFile file, CancellationToken cancellationToken)
     {

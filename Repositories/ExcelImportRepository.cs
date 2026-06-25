@@ -28,7 +28,10 @@ public class ExcelImportRepository : IExcelImportRepository
         _context.Roles.AddAsync(role, cancellationToken).AsTask();
 
     public Task<User?> GetUserByRoleIdAsync(int roleId, CancellationToken cancellationToken = default) =>
-        _context.Users.FirstOrDefaultAsync(user => user.RoleId == roleId, cancellationToken);
+        (from user in _context.Users
+         join userRole in _context.UserRoles on user.Id equals userRole.UserId
+         where userRole.RoleId == roleId
+         select user).FirstOrDefaultAsync(cancellationToken);
 
     public Task AddUserAsync(User user, CancellationToken cancellationToken = default) =>
         _context.Users.AddAsync(user, cancellationToken).AsTask();

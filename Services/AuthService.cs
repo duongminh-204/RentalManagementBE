@@ -1,4 +1,5 @@
-﻿using Backend.DTOs.Auth;
+﻿using Backend.Authorization;
+using Backend.DTOs.Auth;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
 using Backend.Services.Interfaces;
@@ -16,7 +17,8 @@ namespace Backend.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly JwtService _jwtService;
-        private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly UserManager<User> _userManager;
+        private readonly IUserRoleService _userRoleService;
         private readonly IConfiguration _configuration;
         private readonly IMemoryCache _cache;
 
@@ -25,13 +27,15 @@ namespace Backend.Services
         public AuthService(
             IUserRepository userRepository,
             JwtService jwtService,
-            IPasswordHasher<User> passwordHasher,
+            UserManager<User> userManager,
+            IUserRoleService userRoleService,
             IConfiguration configuration,
             IMemoryCache cache)
         {
             _userRepository = userRepository;
             _jwtService = jwtService;
-            _passwordHasher = passwordHasher;
+            _userManager = userManager;
+            _userRoleService = userRoleService;
             _configuration = configuration;
             _cache = cache;
         }
@@ -40,7 +44,7 @@ namespace Backend.Services
         {
             var user = await _userRepository.GetUserByEmailAsync(request.Email);
 
-            if (user == null || !VerifyPassword(request.Password, user.PasswordHash))
+            if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
             {
                 return new AuthResponseDto
                 {
@@ -58,21 +62,24 @@ namespace Backend.Services
                 };
             }
 
-            var token = _jwtService.GenerateToken(user);
+            if (user.IsSuspended)
+            {
+                return new AuthResponseDto
+                {
+                    IsSuccess = false,
+                    Message = "Tài khoản của bạn đã bị tạm ngưng."
+                };
+            }
+
+            var roles = await _userRoleService.GetRolesAsync(user);
+            var token = _jwtService.GenerateToken(user, roles);
 
             return new AuthResponseDto
             {
                 IsSuccess = true,
                 Message = "Đăng nhập thành công",
                 Token = token,
-                User = new AuthUserDto
-                {
-                    UserId = user.UserId,
-                    FullName = user.FullName,
-                    Email = user.Email,
-                    PhoneNumber = user.PhoneNumber,
-                    Role = user.Role?.Name ?? string.Empty,
-                }
+                User = await MapAuthUserAsync(user)
             };
         }
 
@@ -99,35 +106,35 @@ namespace Backend.Services
                 };
             }
 
-            // Tạo user mới
             var newUser = new User
             {
+                UserName = request.Email.Trim(),
                 FullName = request.FullName,
-                Email = request.Email,
+                Email = request.Email.Trim(),
                 PhoneNumber = request.PhoneNumber,
-                PasswordHash = _passwordHasher.HashPassword(new User(), request.Password),
-                RoleId = selectedRole.RoleId,
                 IsActive = true
             };
 
-            await _userRepository.AddUserAsync(newUser);
+            var createResult = await _userManager.CreateAsync(newUser, request.Password);
+            if (!createResult.Succeeded)
+            {
+                return new AuthResponseDto
+                {
+                    IsSuccess = false,
+                    Message = string.Join(" ", createResult.Errors.Select(e => e.Description))
+                };
+            }
 
-            newUser.Role = selectedRole;
-            var token = _jwtService.GenerateToken(newUser);
+            await _userManager.AddToRoleAsync(newUser, selectedRoleName);
+            var roles = await _userRoleService.GetRolesAsync(newUser);
+            var token = _jwtService.GenerateToken(newUser, roles);
 
             return new AuthResponseDto
             {
                 IsSuccess = true,
                 Message = "Đăng ký thành công.",
                 Token = token,
-                User = new AuthUserDto
-                {
-                    UserId = newUser.UserId,
-                    FullName = newUser.FullName,
-                    Email = newUser.Email,
-                    PhoneNumber = newUser.PhoneNumber,
-                    Role = selectedRole.Name,
-                }
+                User = await MapAuthUserAsync(newUser)
             };
         }
 
@@ -135,9 +142,9 @@ namespace Backend.Services
         {
             return role?.Trim().ToLowerInvariant() switch
             {
-                "owner" => "Owner",
-                "tenant" => "Tenant",
-                _ => "Tenant"
+                "owner" => RoleNames.Owner,
+                "tenant" => RoleNames.Tenant,
+                _ => RoleNames.Tenant
             };
         }
 
@@ -157,7 +164,6 @@ namespace Backend.Services
             {
                 var settings = new GoogleJsonWebSignature.ValidationSettings();
 
-                // Ràng buộc audience theo Google ClientId nếu được cấu hình
                 var clientId = _configuration["Google:ClientId"];
                 if (!string.IsNullOrWhiteSpace(clientId))
                     settings.Audience = new[] { clientId };
@@ -186,7 +192,7 @@ namespace Backend.Services
 
             if (user == null)
             {
-                var defaultRole = await _userRepository.GetRoleByNameAsync("Tenant");
+                var defaultRole = await _userRepository.GetRoleByNameAsync(RoleNames.Tenant);
                 if (defaultRole == null)
                 {
                     return new AuthResponseDto
@@ -196,19 +202,27 @@ namespace Backend.Services
                     };
                 }
 
-                // Tạo user mới từ thông tin Google (mật khẩu ngẫu nhiên, không dùng để đăng nhập thường)
                 user = new User
                 {
+                    UserName = payload.Email,
                     FullName = string.IsNullOrWhiteSpace(payload.Name) ? payload.Email : payload.Name,
                     Email = payload.Email,
-                    PasswordHash = _passwordHasher.HashPassword(new User(), Guid.NewGuid().ToString("N")),
+                    PasswordHash = _userManager.PasswordHasher.HashPassword(new User(), Guid.NewGuid().ToString("N")),
                     Avatar = payload.Picture,
-                    RoleId = defaultRole.RoleId,
                     IsActive = true
                 };
 
-                await _userRepository.AddUserAsync(user);
-                user.Role = defaultRole;
+                var createResult = await _userManager.CreateAsync(user);
+                if (!createResult.Succeeded)
+                {
+                    return new AuthResponseDto
+                    {
+                        IsSuccess = false,
+                        Message = string.Join(" ", createResult.Errors.Select(e => e.Description))
+                    };
+                }
+
+                await _userManager.AddToRoleAsync(user, RoleNames.Tenant);
             }
             else if (!user.IsActive)
             {
@@ -219,21 +233,15 @@ namespace Backend.Services
                 };
             }
 
-            var token = _jwtService.GenerateToken(user);
+            var roles = await _userRoleService.GetRolesAsync(user);
+            var token = _jwtService.GenerateToken(user, roles);
 
             return new AuthResponseDto
             {
                 IsSuccess = true,
                 Message = "Đăng nhập thành công",
                 Token = token,
-                User = new AuthUserDto
-                {
-                    UserId = user.UserId,
-                    FullName = user.FullName,
-                    Email = user.Email,
-                    PhoneNumber = user.PhoneNumber,
-                    Role = user.Role?.Name ?? string.Empty,
-                }
+                User = await MapAuthUserAsync(user)
             };
         }
 
@@ -251,8 +259,6 @@ namespace Backend.Services
             var email = request.Email.Trim();
             var user = await _userRepository.GetUserByEmailAsync(email);
 
-            // Chỉ tạo & gửi OTP khi tài khoản tồn tại và đang hoạt động,
-            // nhưng luôn trả về thông điệp chung để tránh dò email.
             if (user != null && user.IsActive)
             {
                 var otp = GenerateOtp();
@@ -316,17 +322,38 @@ namespace Backend.Services
                 };
             }
 
-            user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var resetResult = await _userManager.ResetPasswordAsync(user, resetToken, request.NewPassword);
+            if (!resetResult.Succeeded)
+            {
+                return new AuthResponseDto
+                {
+                    IsSuccess = false,
+                    Message = string.Join(" ", resetResult.Errors.Select(e => e.Description))
+                };
+            }
+
             user.UpdatedAt = DateTime.Now;
             await _userRepository.SaveChangesAsync();
 
-            // OTP chỉ dùng một lần
             _cache.Remove(cacheKey);
 
             return new AuthResponseDto
             {
                 IsSuccess = true,
                 Message = "Đặt lại mật khẩu thành công."
+            };
+        }
+
+        private async Task<AuthUserDto> MapAuthUserAsync(User user)
+        {
+            return new AuthUserDto
+            {
+                UserId = user.UserId,
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Role = await _userRoleService.GetPrimaryRoleAsync(user) ?? string.Empty,
             };
         }
 
@@ -365,12 +392,6 @@ namespace Backend.Services
             };
 
             await client.SendMailAsync(message);
-        }
-
-        private bool VerifyPassword(string inputPassword, string hashedPassword)
-        {
-            var result = _passwordHasher.VerifyHashedPassword(new User(), hashedPassword, inputPassword);
-            return result == PasswordVerificationResult.Success;
         }
     }
 }

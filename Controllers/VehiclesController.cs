@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using Backend.DTOs.Vehicles;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace Backend.Controllers;
 
 [Route("api/vehicles")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleService _vehicleService;

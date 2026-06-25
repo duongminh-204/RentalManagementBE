@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using Backend.DTOs.Contracts;
 using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace Backend.Controllers;
 
 [Route("api/contracts")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
 public class ContractsController : ControllerBase
 {
     private readonly IContractService _contracts;

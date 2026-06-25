@@ -15,14 +15,15 @@ public class JwtService
         _configuration = configuration;
     }
 
-    public string GenerateToken(User user)
+    public string GenerateToken(User user, IEnumerable<string> roles)
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-            new Claim(ClaimTypes.Email, user.Email ?? ""),
-            new Claim(ClaimTypes.Role, user.Role?.Name ?? "")
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Email, user.Email ?? string.Empty)
         };
+
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(
@@ -39,7 +40,9 @@ public class JwtService
             issuer: _configuration["Jwt:Issuer"],
             audience: _configuration["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.Now.AddDays(7),
+            expires: DateTime.Now.AddDays(
+                int.TryParse(_configuration["Jwt:ExpiryInDays"], out var days) ? days : 7
+            ),
             signingCredentials: creds
         );
 

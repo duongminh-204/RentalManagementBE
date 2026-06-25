@@ -6,11 +6,44 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace RentalManagementBE.Migrations
 {
     /// <inheritdoc />
-    public partial class InitDatabase : Migration
+    public partial class Initdb : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "DeviceCatalogs",
+                columns: table => new
+                {
+                    DeviceCatalogId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Icon = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DeviceCatalogs", x => x.DeviceCatalogId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Packages",
+                columns: table => new
+                {
+                    PackageId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    PackageName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Price = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    MaxRooms = table.Column<int>(type: "int", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsEnabled = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Packages", x => x.PackageId);
+                });
+
             migrationBuilder.CreateTable(
                 name: "Roles",
                 columns: table => new
@@ -31,11 +64,11 @@ namespace RentalManagementBE.Migrations
                 {
                     ServiceId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    ServiceName = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ServiceName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     UnitPrice = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    BillingCycle = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false, defaultValue: "Monthly"),
                     Unit = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true)
+                    Icon = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -87,6 +120,7 @@ namespace RentalManagementBE.Migrations
                     Avatar = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     Address = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    IsSuspended = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
@@ -102,6 +136,31 @@ namespace RentalManagementBE.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AuditLogs",
+                columns: table => new
+                {
+                    LogId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<int>(type: "int", nullable: true),
+                    Action = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Entity = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    EntityId = table.Column<int>(type: "int", nullable: true),
+                    IPAddress = table.Column<string>(type: "nvarchar(45)", maxLength: 45, nullable: true),
+                    Timestamp = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
+                    Details = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AuditLogs", x => x.LogId);
+                    table.ForeignKey(
+                        name: "FK_AuditLogs_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Buildings",
                 columns: table => new
                 {
@@ -111,6 +170,8 @@ namespace RentalManagementBE.Migrations
                     BuildingName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Address = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Latitude = table.Column<double>(type: "float", nullable: true),
+                    Longitude = table.Column<double>(type: "float", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
                 constraints: table =>
@@ -146,6 +207,37 @@ namespace RentalManagementBE.Migrations
                         principalTable: "Users",
                         principalColumn: "UserId",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Subscriptions",
+                columns: table => new
+                {
+                    SubscriptionId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    OwnerUserId = table.Column<int>(type: "int", nullable: false),
+                    PackageId = table.Column<int>(type: "int", nullable: false),
+                    StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    EndDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false, defaultValue: "Active"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Subscriptions", x => x.SubscriptionId);
+                    table.ForeignKey(
+                        name: "FK_Subscriptions_Packages_PackageId",
+                        column: x => x.PackageId,
+                        principalTable: "Packages",
+                        principalColumn: "PackageId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Subscriptions_Users_OwnerUserId",
+                        column: x => x.OwnerUserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -202,6 +294,36 @@ namespace RentalManagementBE.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SubscriptionPayments",
+                columns: table => new
+                {
+                    PaymentId = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    OwnerUserId = table.Column<int>(type: "int", nullable: false),
+                    SubscriptionId = table.Column<int>(type: "int", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    PaymentMethod = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    PaymentDate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false, defaultValue: "Success")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SubscriptionPayments", x => x.PaymentId);
+                    table.ForeignKey(
+                        name: "FK_SubscriptionPayments_Subscriptions_SubscriptionId",
+                        column: x => x.SubscriptionId,
+                        principalTable: "Subscriptions",
+                        principalColumn: "SubscriptionId",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SubscriptionPayments_Users_OwnerUserId",
+                        column: x => x.OwnerUserId,
+                        principalTable: "Users",
+                        principalColumn: "UserId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Contracts",
                 columns: table => new
                 {
@@ -209,17 +331,33 @@ namespace RentalManagementBE.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     RoomId = table.Column<int>(type: "int", nullable: false),
                     TenantId = table.Column<int>(type: "int", nullable: false),
+                    ParentContractId = table.Column<int>(type: "int", nullable: true),
                     StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EndDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    RentPrice = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false, defaultValue: 0m),
                     Deposit = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false, defaultValue: 0m),
+                    PaymentCycle = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "Monthly"),
+                    DepositStatus = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "Holding"),
+                    DepositRefundAmount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false, defaultValue: 0m),
+                    DepositDeductionAmount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false, defaultValue: 0m),
                     ContractFile = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Status = table.Column<string>(type: "nvarchar(450)", nullable: false, defaultValue: "Active"),
                     Note = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TerminationReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TerminatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    RenewalHistory = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    DepositHistory = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Contracts", x => x.ContractId);
+                    table.ForeignKey(
+                        name: "FK_Contracts_Contracts_ParentContractId",
+                        column: x => x.ParentContractId,
+                        principalTable: "Contracts",
+                        principalColumn: "ContractId",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Contracts_Rooms_RoomId",
                         column: x => x.RoomId,
@@ -241,14 +379,21 @@ namespace RentalManagementBE.Migrations
                     DeviceId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     RoomId = table.Column<int>(type: "int", nullable: false),
+                    DeviceCatalogId = table.Column<int>(type: "int", nullable: true),
                     DeviceName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Quantity = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
                     Status = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "Working"),
-                    Note = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Devices", x => x.DeviceId);
+                    table.ForeignKey(
+                        name: "FK_Devices_DeviceCatalogs_DeviceCatalogId",
+                        column: x => x.DeviceCatalogId,
+                        principalTable: "DeviceCatalogs",
+                        principalColumn: "DeviceCatalogId",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Devices_Rooms_RoomId",
                         column: x => x.RoomId,
@@ -349,8 +494,7 @@ namespace RentalManagementBE.Migrations
                     RoomServiceId = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     RoomId = table.Column<int>(type: "int", nullable: false),
-                    ServiceId = table.Column<int>(type: "int", nullable: false),
-                    Quantity = table.Column<int>(type: "int", nullable: false, defaultValue: 1)
+                    ServiceId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -482,9 +626,34 @@ namespace RentalManagementBE.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AuditLogs_Action",
+                table: "AuditLogs",
+                column: "Action");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditLogs_Timestamp",
+                table: "AuditLogs",
+                column: "Timestamp");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditLogs_UserId",
+                table: "AuditLogs",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Buildings_UserId",
                 table: "Buildings",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Contracts_EndDate",
+                table: "Contracts",
+                column: "EndDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Contracts_ParentContractId",
+                table: "Contracts",
+                column: "ParentContractId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Contracts_RoomId",
@@ -500,6 +669,17 @@ namespace RentalManagementBE.Migrations
                 name: "IX_Contracts_TenantId",
                 table: "Contracts",
                 column: "TenantId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DeviceCatalogs_Name",
+                table: "DeviceCatalogs",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Devices_DeviceCatalogId",
+                table: "Devices",
+                column: "DeviceCatalogId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Devices_RoomId",
@@ -535,6 +715,12 @@ namespace RentalManagementBE.Migrations
                 name: "IX_Notifications_UserId",
                 table: "Notifications",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Packages_PackageName",
+                table: "Packages",
+                column: "PackageName",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Payments_InvoiceId",
@@ -577,6 +763,47 @@ namespace RentalManagementBE.Migrations
                 name: "IX_RoomServices_ServiceId",
                 table: "RoomServices",
                 column: "ServiceId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Services_ServiceName",
+                table: "Services",
+                column: "ServiceName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SubscriptionPayments_OwnerUserId",
+                table: "SubscriptionPayments",
+                column: "OwnerUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SubscriptionPayments_PaymentDate",
+                table: "SubscriptionPayments",
+                column: "PaymentDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SubscriptionPayments_SubscriptionId",
+                table: "SubscriptionPayments",
+                column: "SubscriptionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_EndDate",
+                table: "Subscriptions",
+                column: "EndDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_OwnerUserId",
+                table: "Subscriptions",
+                column: "OwnerUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_PackageId",
+                table: "Subscriptions",
+                column: "PackageId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_Status",
+                table: "Subscriptions",
+                column: "Status");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Tenants_Email",
@@ -637,6 +864,9 @@ namespace RentalManagementBE.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "AuditLogs");
+
+            migrationBuilder.DropTable(
                 name: "Contracts");
 
             migrationBuilder.DropTable(
@@ -664,10 +894,16 @@ namespace RentalManagementBE.Migrations
                 name: "RoomServices");
 
             migrationBuilder.DropTable(
+                name: "SubscriptionPayments");
+
+            migrationBuilder.DropTable(
                 name: "UtilityUsages");
 
             migrationBuilder.DropTable(
                 name: "Vehicles");
+
+            migrationBuilder.DropTable(
+                name: "DeviceCatalogs");
 
             migrationBuilder.DropTable(
                 name: "Invoices");
@@ -676,10 +912,16 @@ namespace RentalManagementBE.Migrations
                 name: "Services");
 
             migrationBuilder.DropTable(
+                name: "Subscriptions");
+
+            migrationBuilder.DropTable(
                 name: "Tenants");
 
             migrationBuilder.DropTable(
                 name: "Rooms");
+
+            migrationBuilder.DropTable(
+                name: "Packages");
 
             migrationBuilder.DropTable(
                 name: "Buildings");

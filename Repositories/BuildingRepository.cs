@@ -66,6 +66,6 @@ public class BuildingRepository : IBuildingRepository
 
     public async Task<int?> GetAnyUserIdAsync()
     {
-        return await _context.Users.OrderBy(u => u.UserId).Select(u => u.UserId).FirstOrDefaultAsync();
+        return await _context.Users.OrderBy(u => u.Id).Select(u => u.Id).FirstOrDefaultAsync();
     }
 }

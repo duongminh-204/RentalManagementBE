@@ -1,3 +1,4 @@
+using Backend.Authorization;
 using System.Security.Claims;
 using Backend.DTOs.Profile;
 using Backend.Services.Interfaces;
@@ -8,7 +9,7 @@ namespace Backend.Controllers;
 
 [Route("api/profile")]
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicies.ActiveUser)]
 public class ProfileController : ControllerBase
 {
     private readonly IProfileService _profileService;

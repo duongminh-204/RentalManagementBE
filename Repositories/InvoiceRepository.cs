@@ -37,7 +37,7 @@ public class InvoiceRepository : IInvoiceRepository
 
     public async Task<User?> GetAnyUserAsync()
     {
-        return await _context.Users.OrderBy(u => u.UserId).FirstOrDefaultAsync();
+        return await _context.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
     }
 
     public async Task<Invoice?> GetInvoiceByRoomAndMonthAsync(int roomId, string monthYear, int? ownerUserId = null)

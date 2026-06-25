@@ -17,7 +17,6 @@ namespace Backend.Repositories
         public async Task<User?> GetUserByEmailAsync(string email)
         {
             return await _context.Users
-                .Include(u => u.Role) 
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
@@ -42,14 +41,13 @@ namespace Backend.Repositories
         public async Task<User?> GetUserByIdAsync(int userId)
         {
             return await _context.Users
-                .Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.UserId == userId);
+                .FirstOrDefaultAsync(u => u.Id == userId);
         }
 
         public async Task<bool> IsEmailOrPhoneTakenByOtherAsync(string? email, string? phoneNumber, int excludeUserId)
         {
             return await _context.Users.AnyAsync(u =>
-                u.UserId != excludeUserId &&
+                u.Id != excludeUserId &&
                 ((email != null && u.Email == email) || (phoneNumber != null && u.PhoneNumber == phoneNumber)));
         }
 
