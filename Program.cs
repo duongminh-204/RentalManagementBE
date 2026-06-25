@@ -150,6 +150,11 @@ builder.Services.AddScoped<IUserRoleService, UserRoleService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IOwnerFeatureService, OwnerFeatureService>();
 
+builder.Services.AddScoped<ILegalRepository, LegalRepository>();
+builder.Services.AddScoped<ILegalService, LegalService>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
 builder.Services.AddScoped<IAuthorizationHandler, OwnerRoleAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, PackageFeatureAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveUserAuthorizationHandler>();
@@ -349,7 +354,11 @@ string[] folders =
     "uploads/rooms",
     "uploads/vehicles",
     "uploads/avatars",
-    "uploads/contracts"
+    "uploads/contracts",
+    "uploads/legal/deposit-receipts",
+    "uploads/legal/temp-residence",
+    "uploads/legal/handover",
+    "uploads/legal/building-docs"
 };
 
 foreach (var folder in folders)

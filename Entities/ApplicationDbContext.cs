@@ -34,6 +34,9 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
     public DbSet<PlatformPaymentSetting> PlatformPaymentSettings { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<OwnerFeatureGrant> OwnerFeatureGrants { get; set; }
+    public DbSet<TenantLegalProfile> TenantLegalProfiles { get; set; }
+    public DbSet<RoomLegalProfile> RoomLegalProfiles { get; set; }
+    public DbSet<BuildingLegalDocument> BuildingLegalDocuments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -669,6 +672,52 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
                 .WithMany(x => x.GrantedFeatureGrants)
                 .HasForeignKey(x => x.GrantedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        // =========================
+        // Legal checklist
+        // =========================
+        modelBuilder.Entity<TenantLegalProfile>(entity =>
+        {
+            entity.ToTable("TenantLegalProfiles");
+            entity.HasKey(x => x.TenantLegalProfileId);
+            entity.HasIndex(x => x.TenantId).IsUnique();
+            entity.Property(x => x.EmergencyContactName).HasMaxLength(100);
+            entity.Property(x => x.EmergencyContactPhone).HasMaxLength(20);
+            entity.Property(x => x.EmergencyContactRelation).HasMaxLength(50);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
+            entity.HasOne(x => x.Tenant)
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RoomLegalProfile>(entity =>
+        {
+            entity.ToTable("RoomLegalProfiles");
+            entity.HasKey(x => x.RoomLegalProfileId);
+            entity.HasIndex(x => x.RoomId).IsUnique();
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
+            entity.HasOne(x => x.Room)
+                .WithMany()
+                .HasForeignKey(x => x.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BuildingLegalDocument>(entity =>
+        {
+            entity.ToTable("BuildingLegalDocuments");
+            entity.HasKey(x => x.BuildingLegalDocumentId);
+            entity.Property(x => x.DocumentType).IsRequired().HasMaxLength(50);
+            entity.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
+            entity.HasOne(x => x.Building)
+                .WithMany()
+                .HasForeignKey(x => x.BuildingId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // =========================
