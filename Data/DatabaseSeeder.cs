@@ -60,10 +60,15 @@ public static class DatabaseSeeder
     private static async Task SyncPackageCatalogAsync(RentalManagementDb context, ILogger logger)
     {
         var now = DateTime.Now;
+        var existingPackages = await context.Packages.ToListAsync();
+        var catalogNames = PackageCatalog.All
+            .Select(d => d.PackageName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         foreach (var definition in PackageCatalog.All)
         {
-            var package = await context.Packages
-                .FirstOrDefaultAsync(p => p.PackageName == definition.PackageName);
+            var package = existingPackages.FirstOrDefault(p =>
+                string.Equals(p.PackageName, definition.PackageName, StringComparison.OrdinalIgnoreCase));
 
             if (package == null)
             {
@@ -80,6 +85,7 @@ public static class DatabaseSeeder
                 continue;
             }
 
+            package.PackageName = definition.PackageName;
             package.Price = definition.Price;
             package.MaxRooms = definition.MaxRooms;
             package.Description = definition.Description;
@@ -87,12 +93,11 @@ public static class DatabaseSeeder
             package.UpdatedAt = now;
         }
 
-        var legacyNames = new[] { "Basic", "Pro", "Enterprise" };
-        var legacyPackages = await context.Packages
-            .Where(p => legacyNames.Contains(p.PackageName))
-            .ToListAsync();
-        foreach (var legacy in legacyPackages)
-            legacy.IsEnabled = false;
+        foreach (var package in existingPackages)
+        {
+            if (!catalogNames.Contains(package.PackageName))
+                package.IsEnabled = false;
+        }
 
         await context.SaveChangesAsync();
         logger.LogInformation("Synced package catalog (Starter, PRO, PREMIUM).");
