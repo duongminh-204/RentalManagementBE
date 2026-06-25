@@ -575,6 +575,7 @@ public class AdminService : IAdminService
         FullName = user.FullName,
         Email = user.Email,
         PhoneNumber = user.PhoneNumber,
+        Address = user.Address,
         Avatar = user.Avatar,
         Role = role ?? string.Empty,
         IsActive = user.IsActive,
