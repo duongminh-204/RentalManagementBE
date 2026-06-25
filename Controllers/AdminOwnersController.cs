@@ -13,10 +13,12 @@ namespace Backend.Controllers;
 public class AdminOwnersController : ControllerBase
 {
     private readonly IAdminService _adminService;
+    private readonly IOwnerFeatureService _ownerFeatureService;
 
-    public AdminOwnersController(IAdminService adminService)
+    public AdminOwnersController(IAdminService adminService, IOwnerFeatureService ownerFeatureService)
     {
         _adminService = adminService;
+        _ownerFeatureService = ownerFeatureService;
     }
 
     [HttpGet]
@@ -109,6 +111,36 @@ public class AdminOwnersController : ControllerBase
     {
         try { return Ok(await _adminService.UnlockOwnerAsync(id, GetUserId(), GetIp())); }
         catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpGet("{id}/feature-grants")]
+    public async Task<ActionResult<OwnerFeatureGrantsDto>> GetFeatureGrants(int id)
+    {
+        try
+        {
+            return Ok(await _ownerFeatureService.GetOwnerFeatureGrantsAsync(id));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpPut("{id}/feature-grants")]
+    public async Task<ActionResult<OwnerFeatureGrantsDto>> UpdateFeatureGrants(int id, [FromBody] UpdateOwnerFeatureGrantsDto dto)
+    {
+        try
+        {
+            return Ok(await _ownerFeatureService.UpdateOwnerFeatureGrantsAsync(id, dto, GetUserId(), GetIp()));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     private int? GetUserId()

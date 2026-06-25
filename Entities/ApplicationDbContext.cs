@@ -33,6 +33,7 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
     public DbSet<SubscriptionPayment> SubscriptionPayments { get; set; }
     public DbSet<PlatformPaymentSetting> PlatformPaymentSettings { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<OwnerFeatureGrant> OwnerFeatureGrants { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -644,6 +645,28 @@ public class RentalManagementDb : IdentityDbContext<User, Role, int>
             entity.Property(x => x.AccountNumber).IsRequired().HasMaxLength(30);
             entity.Property(x => x.AccountName).IsRequired().HasMaxLength(100);
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
+        });
+
+        // =========================
+        // Owner feature grants (admin trial access)
+        // =========================
+        modelBuilder.Entity<OwnerFeatureGrant>(entity =>
+        {
+            entity.ToTable("OwnerFeatureGrants");
+            entity.HasKey(x => x.OwnerFeatureGrantId);
+            entity.Property(x => x.Feature).IsRequired().HasMaxLength(50);
+            entity.Property(x => x.Note).HasMaxLength(300);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("GETDATE()");
+            entity.HasIndex(x => new { x.OwnerUserId, x.Feature }).IsUnique();
+            entity.HasOne(x => x.Owner)
+                .WithMany(x => x.FeatureGrants)
+                .HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.GrantedBy)
+                .WithMany(x => x.GrantedFeatureGrants)
+                .HasForeignKey(x => x.GrantedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // =========================

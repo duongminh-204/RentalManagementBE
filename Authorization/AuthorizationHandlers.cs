@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Backend.Data;
+using Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 
@@ -117,11 +118,11 @@ public class ActiveSubscriptionAuthorizationHandler : AuthorizationHandler<Activ
 
 public class PackageFeatureAuthorizationHandler : AuthorizationHandler<PackageFeatureRequirement>
 {
-    private readonly RentalManagementDb _context;
+    private readonly IOwnerFeatureService _ownerFeatureService;
 
-    public PackageFeatureAuthorizationHandler(RentalManagementDb context)
+    public PackageFeatureAuthorizationHandler(IOwnerFeatureService ownerFeatureService)
     {
-        _context = context;
+        _ownerFeatureService = ownerFeatureService;
     }
 
     protected override async Task HandleRequirementAsync(
@@ -131,19 +132,7 @@ public class PackageFeatureAuthorizationHandler : AuthorizationHandler<PackageFe
         var userId = AuthorizationClaimExtensions.GetUserId(context.User);
         if (userId == null) return;
 
-        var now = DateTime.Now;
-        var packageName = await _context.Subscriptions
-            .AsNoTracking()
-            .Include(s => s.Package)
-            .Where(s =>
-                s.OwnerUserId == userId.Value &&
-                s.Status == "Active" &&
-                s.EndDate >= now)
-            .OrderByDescending(s => s.EndDate)
-            .Select(s => s.Package!.PackageName)
-            .FirstOrDefaultAsync();
-
-        if (PackageCatalog.HasFeature(packageName, requirement.Feature))
+        if (await _ownerFeatureService.HasFeatureAsync(userId.Value, requirement.Feature))
             context.Succeed(requirement);
     }
 }

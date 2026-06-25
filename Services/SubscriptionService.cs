@@ -10,10 +10,12 @@ namespace Backend.Services;
 public class SubscriptionService : ISubscriptionService
 {
     private readonly RentalManagementDb _context;
+    private readonly IOwnerFeatureService _ownerFeatureService;
 
-    public SubscriptionService(RentalManagementDb context)
+    public SubscriptionService(RentalManagementDb context, IOwnerFeatureService ownerFeatureService)
     {
         _context = context;
+        _ownerFeatureService = ownerFeatureService;
     }
 
     public async Task<IReadOnlyList<PublicPackageDto>> GetPublicPackagesAsync()
@@ -48,7 +50,7 @@ public class SubscriptionService : ISubscriptionService
 
         if (active != null)
         {
-            var dto = MapOwnerSubscription(active);
+            var dto = await MapOwnerSubscriptionAsync(active, ownerUserId);
             if (pendingUpgrade != null)
             {
                 dto.HasPendingUpgrade = true;
@@ -63,7 +65,7 @@ public class SubscriptionService : ISubscriptionService
         var pending = await GetPrimarySubscriptionQuery(ownerUserId)
             .FirstOrDefaultAsync();
 
-        return pending == null ? null : MapOwnerSubscription(pending);
+        return pending == null ? null : await MapOwnerSubscriptionAsync(pending, ownerUserId);
     }
 
     public async Task<OwnerSubscriptionDto> RequestSubscriptionAsync(int ownerUserId, int packageId)
@@ -95,7 +97,7 @@ public class SubscriptionService : ISubscriptionService
             EnsurePaymentReference(pending);
             await _context.SaveChangesAsync();
             await _context.Entry(pending).Reference(s => s.Package).LoadAsync();
-            return MapOwnerSubscription(pending);
+            return await MapOwnerSubscriptionAsync(pending);
         }
 
         var subscription = new Subscription
@@ -117,7 +119,7 @@ public class SubscriptionService : ISubscriptionService
         await _context.SaveChangesAsync();
 
         await _context.Entry(subscription).Reference(s => s.Package).LoadAsync();
-        return MapOwnerSubscription(subscription);
+        return await MapOwnerSubscriptionAsync(subscription);
     }
 
     public async Task<SubscriptionPaymentCheckoutDto?> GetPaymentCheckoutAsync(int ownerUserId)
@@ -281,7 +283,7 @@ public class SubscriptionService : ISubscriptionService
         await _context.SaveChangesAsync();
 
         await _context.Entry(pending).Reference(s => s.Package).LoadAsync();
-        var dto = MapOwnerSubscription(pending);
+        var dto = await MapOwnerSubscriptionAsync(pending);
         dto.IsUpgrade = true;
         return dto;
     }
@@ -327,7 +329,7 @@ public class SubscriptionService : ISubscriptionService
         await _context.SaveChangesAsync();
         await _context.Entry(upgraded).Reference(s => s.Package).LoadAsync();
 
-        var dto = MapOwnerSubscription(upgraded);
+        var dto = await MapOwnerSubscriptionAsync(upgraded);
         dto.IsUpgrade = true;
         dto.PaymentAmount = 0;
         return dto;
@@ -439,7 +441,7 @@ public class SubscriptionService : ISubscriptionService
         };
     }
 
-    private static OwnerSubscriptionDto MapOwnerSubscription(Subscription subscription)
+    private async Task<OwnerSubscriptionDto> MapOwnerSubscriptionAsync(Subscription subscription, int? ownerUserId = null)
     {
         var package = subscription.Package;
         var features = package == null
@@ -447,6 +449,9 @@ public class SubscriptionService : ISubscriptionService
             : PackageFeatureHelper.SplitFeatureLines(package.FeatureLines);
         if (features.Count == 0)
             features = PackageCatalog.Find(package?.PackageName)?.FeatureLines.ToList() ?? [];
+
+        var ownerId = ownerUserId ?? subscription.OwnerUserId;
+        await AppendTrialFeatureLabelsAsync(features, ownerId, package?.PackageName);
 
         return new OwnerSubscriptionDto
         {
@@ -462,5 +467,23 @@ public class SubscriptionService : ISubscriptionService
             PaymentAmount = subscription.PaymentAmount,
             IsUpgrade = subscription.ReplacesSubscriptionId.HasValue
         };
+    }
+
+    private async Task AppendTrialFeatureLabelsAsync(List<string> features, int ownerUserId, string? packageName)
+    {
+        var effective = await _ownerFeatureService.GetEffectiveFeaturesAsync(ownerUserId);
+        var fromPackage = PackageCatalog.GetPackageFeatures(packageName);
+
+        foreach (var feature in effective)
+        {
+            if (fromPackage.Contains(feature))
+                continue;
+
+            var displayName = PackageCatalog.GetDisplayName(feature);
+            if (features.Any(f => f.Contains(displayName, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            features.Add($"{displayName} (Dùng thử)");
+        }
     }
 }

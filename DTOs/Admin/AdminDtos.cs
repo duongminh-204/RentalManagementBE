@@ -97,6 +97,38 @@ public class UpdateAdminOwnerDto
     public int? PackageId { get; set; }
 }
 
+public class OwnerFeatureGrantItemDto
+{
+    public string Feature { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string RequiredPackage { get; set; } = string.Empty;
+    public bool IncludedInPackage { get; set; }
+    public bool ManuallyGranted { get; set; }
+    public bool IsEffective { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public string? Note { get; set; }
+}
+
+public class OwnerFeatureGrantsDto
+{
+    public int OwnerId { get; set; }
+    public string? PackageName { get; set; }
+    public List<OwnerFeatureGrantItemDto> Features { get; set; } = [];
+}
+
+public class OwnerFeatureGrantUpdateItemDto
+{
+    public string Feature { get; set; } = string.Empty;
+    public bool Granted { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public string? Note { get; set; }
+}
+
+public class UpdateOwnerFeatureGrantsDto
+{
+    public List<OwnerFeatureGrantUpdateItemDto> Grants { get; set; } = [];
+}
+
 // Packages
 public class AdminPackageDto
 {

@@ -118,5 +118,32 @@ public static class PackageCatalog
         return package?.Features.Contains(feature) == true;
     }
 
+    public static IReadOnlySet<PackageFeature> GetPackageFeatures(string? packageName)
+    {
+        var package = Find(packageName);
+        return package?.Features ?? new HashSet<PackageFeature>();
+    }
+
+    public static string GetDisplayName(PackageFeature feature) => feature switch
+    {
+        PackageFeature.Dashboard => "Dashboard dữ liệu",
+        PackageFeature.TenantManagement => "Quản lý khách thuê",
+        PackageFeature.UtilitiesInvoices => "Quản lý điện nước & hoá đơn",
+        PackageFeature.Contracts => "Quản lý hợp đồng",
+        PackageFeature.PaymentInvoices => "Tạo hoá đơn thanh toán",
+        PackageFeature.RevenueDebtReports => "Báo cáo doanh thu & công nợ",
+        PackageFeature.VehicleManagement => "Quản lý phương tiện",
+        PackageFeature.AiRoomDecor => "AI decor phòng",
+        PackageFeature.LegalChecklist => "Checklist pháp lý",
+        _ => feature.ToString()
+    };
+
+    public static string GetRequiredPackageName(PackageFeature feature) => feature switch
+    {
+        PackageFeature.RevenueDebtReports or PackageFeature.VehicleManagement => Pro,
+        PackageFeature.AiRoomDecor or PackageFeature.LegalChecklist => Premium,
+        _ => Starter
+    };
+
     public static string GetPolicyName(PackageFeature feature) => $"PackageFeature.{feature}";
 }

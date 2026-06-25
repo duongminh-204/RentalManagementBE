@@ -148,6 +148,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IUserRoleService, UserRoleService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IOwnerFeatureService, OwnerFeatureService>();
 
 builder.Services.AddScoped<IAuthorizationHandler, OwnerRoleAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, PackageFeatureAuthorizationHandler>();

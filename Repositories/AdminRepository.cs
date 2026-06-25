@@ -472,6 +472,11 @@ public class AdminRepository : IAdminRepository
             .ToListAsync();
         _context.Notifications.RemoveRange(notifications);
 
+        var featureGrants = await _context.OwnerFeatureGrants
+            .Where(g => g.OwnerUserId == ownerUserId)
+            .ToListAsync();
+        _context.OwnerFeatureGrants.RemoveRange(featureGrants);
+
         await _context.SaveChangesAsync();
     }
 

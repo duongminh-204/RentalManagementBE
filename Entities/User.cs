@@ -49,4 +49,8 @@ public class User : IdentityUser<int>
     public ICollection<SubscriptionPayment> SubscriptionPayments { get; set; } = new List<SubscriptionPayment>();
 
     public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
+
+    public ICollection<OwnerFeatureGrant> FeatureGrants { get; set; } = new List<OwnerFeatureGrant>();
+
+    public ICollection<OwnerFeatureGrant> GrantedFeatureGrants { get; set; } = new List<OwnerFeatureGrant>();
 }
