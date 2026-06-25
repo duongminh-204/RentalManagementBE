@@ -273,13 +273,25 @@ using (var scope = app.Services.CreateScope())
 
     try
     {
-
         await context.Database.MigrateAsync();
         Console.WriteLine("Database migrated successfully.");
     }
     catch (Exception ex)
     {
-        Console.WriteLine("Migration failed: " + ex.Message);
+        Console.WriteLine("Migration failed: " + ex);
+    }
+
+    try
+    {
+        var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+        if (pendingMigrations.Any())
+        {
+            Console.WriteLine("WARNING: Pending migrations were not applied: " + string.Join(", ", pendingMigrations));
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Could not verify pending migrations: " + ex.Message);
     }
 
     try
@@ -298,6 +310,24 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
     app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler(errorApp =>
+    {
+        errorApp.Run(async context =>
+        {
+            var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/json; charset=utf-8";
+
+            var message = exception is InvalidOperationException invalidOp
+                ? invalidOp.Message
+                : "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau.";
+
+            await context.Response.WriteAsJsonAsync(new { message });
+        });
+    });
 }
 
 app.UseCors("AllowFrontend");

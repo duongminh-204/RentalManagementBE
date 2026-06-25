@@ -4,6 +4,7 @@ using Backend.DTOs.Admin;
 using Backend.Entities;
 using Backend.Repositories.Interfaces;
 using Backend.Services.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Services;
@@ -50,10 +51,20 @@ public class OwnerFeatureService : IOwnerFeatureService
 
         var packageName = owner.Package;
         var fromPackage = PackageCatalog.GetPackageFeatures(packageName);
-        var grants = await _context.OwnerFeatureGrants
-            .AsNoTracking()
-            .Where(g => g.OwnerUserId == ownerId)
-            .ToListAsync(ct);
+        List<OwnerFeatureGrant> grants;
+        try
+        {
+            grants = await _context.OwnerFeatureGrants
+                .AsNoTracking()
+                .Where(g => g.OwnerUserId == ownerId)
+                .ToListAsync(ct);
+        }
+        catch (Exception ex) when (IsMissingFeatureGrantsTable(ex))
+        {
+            throw new InvalidOperationException(
+                "Bảng OwnerFeatureGrants chưa tồn tại trên database. Vui lòng deploy lại backend và kiểm tra migration AddOwnerFeatureGrants.",
+                ex);
+        }
 
         var now = DateTime.Now;
         var features = Enum.GetValues<PackageFeature>()
@@ -191,4 +202,13 @@ public class OwnerFeatureService : IOwnerFeatureService
 
         return features;
     }
+
+    private static bool IsMissingFeatureGrantsTable(Exception ex) =>
+        ex switch
+        {
+            SqlException sql when sql.Message.Contains("OwnerFeatureGrants", StringComparison.OrdinalIgnoreCase) => true,
+            InvalidOperationException { InnerException: SqlException inner }
+                when inner.Message.Contains("OwnerFeatureGrants", StringComparison.OrdinalIgnoreCase) => true,
+            _ => ex.InnerException is not null && IsMissingFeatureGrantsTable(ex.InnerException),
+        };
 }
