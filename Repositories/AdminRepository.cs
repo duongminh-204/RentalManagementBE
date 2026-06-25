@@ -155,12 +155,142 @@ public class AdminRepository : IAdminRepository
             })
             .ToListAsync();
 
+        var paymentMethods = await _context.SubscriptionPayments
+            .Where(p => p.Status == "Success" && p.PaymentDate >= monthStart)
+            .GroupBy(p => p.PaymentMethod)
+            .Select(g => new ChartDataPointDto
+            {
+                Label = g.Key,
+                Count = g.Count(),
+                Value = g.Sum(x => x.Amount)
+            })
+            .ToListAsync();
+
+        var newRooms = await _context.Rooms
+            .Where(r => r.CreatedAt >= monthStart)
+            .GroupBy(r => new { r.CreatedAt.Year, r.CreatedAt.Month })
+            .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+            .ToListAsync();
+
+        var newTenants = await _context.Tenants
+            .Where(t => t.CreatedAt >= monthStart)
+            .GroupBy(t => new { t.CreatedAt.Year, t.CreatedAt.Month })
+            .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+            .ToListAsync();
+
+        var platformAdoption = new List<ChartDataPointDto>();
+        for (var i = 0; i < 6; i++)
+        {
+            var d = monthStart.AddMonths(i);
+            var rooms = newRooms.FirstOrDefault(x => x.Year == d.Year && x.Month == d.Month);
+            var tenants = newTenants.FirstOrDefault(x => x.Year == d.Year && x.Month == d.Month);
+            platformAdoption.Add(new ChartDataPointDto
+            {
+                Label = d.ToString("MM/yyyy"),
+                Count = tenants?.Count ?? 0,
+                Value = rooms?.Count ?? 0
+            });
+        }
+
+        var expiringEnd = now.AddDays(28);
+        var expiringSubs = await _context.Subscriptions
+            .Where(s => s.Status == "Active" && s.EndDate >= now && s.EndDate <= expiringEnd)
+            .Select(s => s.EndDate)
+            .ToListAsync();
+
+        var expiringTimeline = new List<ChartDataPointDto>();
+        for (var week = 0; week < 4; week++)
+        {
+            var weekStart = now.Date.AddDays(week * 7);
+            var weekEnd = weekStart.AddDays(7);
+            var count = expiringSubs.Count(d => d >= weekStart && d < weekEnd);
+            expiringTimeline.Add(new ChartDataPointDto
+            {
+                Label = week == 0 ? "Tuần này" : $"Tuần {week + 1}",
+                Count = count
+            });
+        }
+
+        var pendingCount = await _context.Subscriptions.CountAsync(s => s.Status == "Pending");
+        var expiring7Count = await _context.Subscriptions.CountAsync(s =>
+            s.Status == "Active" && s.EndDate >= now && s.EndDate <= now.AddDays(7));
+        var failedPayments = await _context.SubscriptionPayments.CountAsync(p =>
+            p.Status == "Failed" && p.PaymentDate >= monthStart);
+
+        var activeSubsWithLimits = await _context.Subscriptions
+            .AsNoTracking()
+            .Where(s => s.Status == "Active" && s.EndDate >= now)
+            .Include(s => s.Package)
+            .Select(s => new { s.OwnerUserId, s.Package.MaxRooms })
+            .ToListAsync();
+
+        var roomCounts = await _context.Rooms
+            .GroupBy(r => r.Building.UserId)
+            .Select(g => new { OwnerUserId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var overLimitCount = activeSubsWithLimits.Count(sub =>
+        {
+            var rooms = roomCounts.FirstOrDefault(r => r.OwnerUserId == sub.OwnerUserId)?.Count ?? 0;
+            return rooms > sub.MaxRooms;
+        });
+
+        var alerts = new List<AdminDashboardAlertDto>();
+        if (pendingCount > 0)
+        {
+            alerts.Add(new AdminDashboardAlertDto
+            {
+                Type = "pending",
+                Title = "Đăng ký chờ duyệt",
+                Description = "Có đăng ký gói mới cần admin kích hoạt.",
+                Count = pendingCount,
+                ActionPath = "/admin/subscriptions"
+            });
+        }
+        if (expiring7Count > 0)
+        {
+            alerts.Add(new AdminDashboardAlertDto
+            {
+                Type = "expiring",
+                Title = "Gói sắp hết hạn",
+                Description = "Đăng ký active sẽ hết hạn trong 7 ngày tới.",
+                Count = expiring7Count,
+                ActionPath = "/admin/subscriptions"
+            });
+        }
+        if (overLimitCount > 0)
+        {
+            alerts.Add(new AdminDashboardAlertDto
+            {
+                Type = "overlimit",
+                Title = "Vượt giới hạn phòng",
+                Description = "Chủ trọ đang dùng nhiều phòng hơn gói cho phép.",
+                Count = overLimitCount,
+                ActionPath = "/admin/subscriptions"
+            });
+        }
+        if (failedPayments > 0)
+        {
+            alerts.Add(new AdminDashboardAlertDto
+            {
+                Type = "payment",
+                Title = "Thanh toán thất bại",
+                Description = "Giao dịch không thành công trong 6 tháng gần đây.",
+                Count = failedPayments,
+                ActionPath = "/admin/payments"
+            });
+        }
+
         return new AdminDashboardChartsDto
         {
             RevenueGrowth = revenueGrowth,
             PackageDistribution = packageDistribution,
             OwnerGrowth = ownerGrowthChart,
-            SubscriptionStatus = subscriptionStatus
+            SubscriptionStatus = subscriptionStatus,
+            PaymentMethods = paymentMethods,
+            PlatformAdoption = platformAdoption,
+            ExpiringTimeline = expiringTimeline,
+            Alerts = alerts
         };
     }
 

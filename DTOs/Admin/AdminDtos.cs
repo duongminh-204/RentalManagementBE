@@ -37,6 +37,19 @@ public class AdminDashboardChartsDto
     public List<ChartDataPointDto> PackageDistribution { get; set; } = new();
     public List<ChartDataPointDto> OwnerGrowth { get; set; } = new();
     public List<ChartDataPointDto> SubscriptionStatus { get; set; } = new();
+    public List<ChartDataPointDto> PaymentMethods { get; set; } = new();
+    public List<ChartDataPointDto> PlatformAdoption { get; set; } = new();
+    public List<ChartDataPointDto> ExpiringTimeline { get; set; } = new();
+    public List<AdminDashboardAlertDto> Alerts { get; set; } = new();
+}
+
+public class AdminDashboardAlertDto
+{
+    public string Type { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public string? ActionPath { get; set; }
 }
 
 // Owners
