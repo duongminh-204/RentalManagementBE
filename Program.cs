@@ -10,6 +10,7 @@ using Backend.Services.Interfaces;
 using Backend.Services.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -152,6 +153,7 @@ builder.Services.AddScoped<IAuthorizationHandler, PackageFeatureAuthorizationHan
 builder.Services.AddScoped<IAuthorizationHandler, ActiveUserAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, NotSuspendedAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, ActiveSubscriptionAuthorizationHandler>();
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, JsonAuthorizationMiddlewareResultHandler>();
 
 builder.Services.AddIdentityCore<User>(options =>
 {

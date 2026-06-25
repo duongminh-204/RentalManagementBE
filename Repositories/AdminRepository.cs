@@ -190,6 +190,7 @@ public class AdminRepository : IAdminRepository
                 u.FullName,
                 u.Email,
                 u.PhoneNumber,
+                u.Avatar,
                 u.IsActive,
                 u.IsSuspended,
                 u.CreatedAt,
@@ -202,6 +203,7 @@ public class AdminRepository : IAdminRepository
                     .OrderByDescending(s => s.EndDate)
                     .Select(s => new { s.EndDate, PackageName = s.Package.PackageName })
                     .FirstOrDefault(),
+                BuildingCount = u.Buildings.Count(),
                 RoomCount = u.Buildings.SelectMany(b => b.Rooms).Count()
             })
             .ToListAsync();
@@ -218,13 +220,15 @@ public class AdminRepository : IAdminRepository
                 FullName = o.FullName,
                 Email = o.Email,
                 Phone = o.PhoneNumber,
+                Avatar = o.Avatar,
                 Package = o.ActiveSub?.PackageName ?? o.LatestSub?.PackageName,
                 SubscriptionStatus = subStatus,
                 CreatedDate = o.CreatedAt,
                 ExpiredDate = o.ActiveSub?.EndDate ?? o.LatestSub?.EndDate,
                 IsActive = o.IsActive,
                 IsSuspended = o.IsSuspended,
-                RoomCount = o.RoomCount
+                RoomCount = o.RoomCount,
+                BuildingCount = o.BuildingCount
             };
         }).ToList();
 
@@ -270,11 +274,15 @@ public class AdminRepository : IAdminRepository
             FullName = owner.FullName,
             Email = owner.Email,
             Phone = owner.PhoneNumber,
+            Avatar = owner.Avatar,
+            CCCD = owner.CCCD,
+            Address = owner.Address,
             Package = activeSub?.Package?.PackageName ?? latestSub?.Package?.PackageName,
             PackageId = activeSub?.PackageId ?? latestSub?.PackageId,
             SubscriptionId = activeSub?.SubscriptionId ?? latestSub?.SubscriptionId,
             SubscriptionStatus = subStatus,
             CreatedDate = owner.CreatedAt,
+            UpdatedAt = owner.UpdatedAt,
             ExpiredDate = activeSub?.EndDate ?? latestSub?.EndDate,
             SubscriptionStartDate = activeSub?.StartDate ?? latestSub?.StartDate,
             IsActive = owner.IsActive,
@@ -297,6 +305,43 @@ public class AdminRepository : IAdminRepository
     {
         return await _context.Rooms
             .CountAsync(r => r.Building.UserId == ownerUserId);
+    }
+
+    public async Task CleanupOwnerBeforeDeleteAsync(int ownerUserId)
+    {
+        var invoiceCount = await _context.Invoices.CountAsync(i => i.UserId == ownerUserId);
+        if (invoiceCount > 0)
+            throw new InvalidOperationException("Không thể xóa chủ trọ đang có hóa đơn.");
+
+        var subscriptionIds = await _context.Subscriptions
+            .Where(s => s.OwnerUserId == ownerUserId)
+            .Select(s => s.SubscriptionId)
+            .ToListAsync();
+
+        if (subscriptionIds.Count > 0)
+        {
+            var subscriptionPayments = await _context.SubscriptionPayments
+                .Where(p => subscriptionIds.Contains(p.SubscriptionId) || p.OwnerUserId == ownerUserId)
+                .ToListAsync();
+            _context.SubscriptionPayments.RemoveRange(subscriptionPayments);
+        }
+
+        var subscriptions = await _context.Subscriptions
+            .Where(s => s.OwnerUserId == ownerUserId)
+            .ToListAsync();
+        _context.Subscriptions.RemoveRange(subscriptions);
+
+        var buildings = await _context.Buildings
+            .Where(b => b.UserId == ownerUserId)
+            .ToListAsync();
+        _context.Buildings.RemoveRange(buildings);
+
+        var notifications = await _context.Notifications
+            .Where(n => n.UserId == ownerUserId)
+            .ToListAsync();
+        _context.Notifications.RemoveRange(notifications);
+
+        await _context.SaveChangesAsync();
     }
 
     public async Task<(List<AdminPackageDto> Items, int Total)> GetPackagesAsync(string? search, bool? isEnabled, int page, int pageSize)
@@ -517,8 +562,9 @@ public class AdminRepository : IAdminRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task<(List<AdminUserDto> Items, int Total)> GetUsersAsync(string? role, string? search, bool? isActive, int page, int pageSize)
+    public async Task<(List<AdminUserDto> Items, int Total)> GetUsersAsync(string? role, string? search, bool? isActive, string? subscriptionStatus, int page, int pageSize)
     {
+        var now = DateTime.Now;
         var query = _context.Users.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(role))
@@ -544,17 +590,15 @@ public class AdminRepository : IAdminRepository
         if (isActive.HasValue)
             query = query.Where(u => u.IsActive == isActive.Value);
 
-        var total = await query.CountAsync();
         var users = await query
             .OrderByDescending(u => u.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
             .Select(u => new
             {
                 u.Id,
                 u.FullName,
                 u.Email,
                 u.PhoneNumber,
+                u.Avatar,
                 u.IsActive,
                 u.IsSuspended,
                 u.CreatedAt,
@@ -563,22 +607,58 @@ public class AdminRepository : IAdminRepository
                     join r in _context.Roles on ur.RoleId equals r.Id
                     where ur.UserId == u.Id
                     select r.Name
-                ).FirstOrDefault()
+                ).FirstOrDefault(),
+                BuildingCount = u.Buildings.Count(),
+                RoomCount = u.Buildings.SelectMany(b => b.Rooms).Count(),
+                ActiveSub = u.Subscriptions
+                    .Where(s => s.Status == "Active" && s.EndDate >= now)
+                    .OrderByDescending(s => s.EndDate)
+                    .Select(s => new { s.EndDate, PackageName = s.Package.PackageName })
+                    .FirstOrDefault(),
+                LatestSub = u.Subscriptions
+                    .OrderByDescending(s => s.EndDate)
+                    .Select(s => new { s.EndDate, PackageName = s.Package.PackageName })
+                    .FirstOrDefault(),
             })
             .ToListAsync();
 
-        var items = users.Select(u => new AdminUserDto
+        var mapped = users.Select(u =>
         {
-            UserId = u.Id,
-            FullName = u.FullName,
-            Email = u.Email,
-            PhoneNumber = u.PhoneNumber,
-            Role = u.Role ?? string.Empty,
-            IsActive = u.IsActive,
-            IsSuspended = u.IsSuspended,
-            CreatedAt = u.CreatedAt
+            var isOwner = string.Equals(u.Role, RoleNames.Owner, StringComparison.OrdinalIgnoreCase);
+            var subStatus = !isOwner ? null :
+                u.IsSuspended ? "Suspended" :
+                u.ActiveSub != null ? "Active" :
+                (u.LatestSub != null && u.LatestSub.EndDate < now) ? "Expired" : "None";
+
+            return new AdminUserDto
+            {
+                UserId = u.Id,
+                FullName = u.FullName,
+                Email = u.Email,
+                PhoneNumber = u.PhoneNumber,
+                Avatar = u.Avatar,
+                Role = u.Role ?? string.Empty,
+                IsActive = u.IsActive,
+                IsSuspended = u.IsSuspended,
+                CreatedAt = u.CreatedAt,
+                Package = isOwner ? (u.ActiveSub?.PackageName ?? u.LatestSub?.PackageName) : null,
+                SubscriptionStatus = subStatus,
+                ExpiredDate = isOwner ? (u.ActiveSub?.EndDate ?? u.LatestSub?.EndDate) : null,
+                RoomCount = isOwner ? u.RoomCount : 0,
+                BuildingCount = isOwner ? u.BuildingCount : 0,
+            };
         }).ToList();
 
+        if (!string.IsNullOrWhiteSpace(subscriptionStatus))
+        {
+            var normalized = subscriptionStatus.Trim();
+            mapped = mapped.Where(u =>
+                u.SubscriptionStatus != null &&
+                u.SubscriptionStatus.Equals(normalized, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        var total = mapped.Count;
+        var items = mapped.Skip((page - 1) * pageSize).Take(pageSize).ToList();
         return (items, total);
     }
 

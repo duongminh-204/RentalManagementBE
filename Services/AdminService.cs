@@ -122,11 +122,12 @@ public class AdminService : IAdminService
         if (roomCount > 0)
             throw new InvalidOperationException("Không thể xóa chủ trọ đang có phòng.");
 
+        await _repo.CleanupOwnerBeforeDeleteAsync(ownerId);
         await _auditLog.LogAsync(adminUserId, "Delete", "Owner", ownerId, owner.Email, ip);
-        // Soft approach: deactivate instead of hard delete if has related data
-        owner.IsActive = false;
-        owner.UpdatedAt = DateTime.Now;
-        await _repo.SaveChangesAsync();
+
+        var deleteResult = await _userManager.DeleteAsync(owner);
+        if (!deleteResult.Succeeded)
+            throw new InvalidOperationException(string.Join(" ", deleteResult.Errors.Select(e => e.Description)));
     }
 
     public async Task<AdminOwnerDetailDto> SuspendOwnerAsync(int ownerId, int? adminUserId, string? ip)
@@ -389,11 +390,11 @@ public class AdminService : IAdminService
         return stream.ToArray();
     }
 
-    public async Task<PagedResultDto<AdminUserDto>> GetUsersAsync(string? role, string? search, bool? isActive, int page, int pageSize)
+    public async Task<PagedResultDto<AdminUserDto>> GetUsersAsync(string? role, string? search, bool? isActive, string? subscriptionStatus, int page, int pageSize)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var (items, total) = await _repo.GetUsersAsync(role, search, isActive, page, pageSize);
+        var (items, total) = await _repo.GetUsersAsync(role, search, isActive, subscriptionStatus, page, pageSize);
         return new PagedResultDto<AdminUserDto> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 
@@ -435,6 +436,28 @@ public class AdminService : IAdminService
             Message = "Đặt lại mật khẩu thành công.",
             TemporaryPassword = tempPassword
         };
+    }
+
+    public async Task DeleteUserAsync(int userId, int? adminUserId, string? ip)
+    {
+        if (adminUserId.HasValue && adminUserId.Value == userId)
+            throw new InvalidOperationException("Không thể xóa tài khoản của chính bạn.");
+
+        var user = await _repo.GetUserByIdAsync(userId) ?? throw new KeyNotFoundException();
+
+        if (await _userRoleService.IsInRoleAsync(user, RoleNames.Admin))
+            throw new InvalidOperationException("Không thể xóa tài khoản Admin.");
+
+        if (await _userRoleService.IsInRoleAsync(user, RoleNames.Owner))
+        {
+            await DeleteOwnerAsync(userId, adminUserId, ip);
+            return;
+        }
+
+        await _auditLog.LogAsync(adminUserId, "Delete", "User", userId, user.Email, ip);
+        var deleteResult = await _userManager.DeleteAsync(user);
+        if (!deleteResult.Succeeded)
+            throw new InvalidOperationException(string.Join(" ", deleteResult.Errors.Select(e => e.Description)));
     }
 
     public async Task<PagedResultDto<AdminAuditLogDto>> GetAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to, int page, int pageSize)
@@ -524,6 +547,7 @@ public class AdminService : IAdminService
         FullName = user.FullName,
         Email = user.Email,
         PhoneNumber = user.PhoneNumber,
+        Avatar = user.Avatar,
         Role = role ?? string.Empty,
         IsActive = user.IsActive,
         IsSuspended = user.IsSuspended,

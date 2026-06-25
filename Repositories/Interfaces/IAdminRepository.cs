@@ -13,6 +13,7 @@ public interface IAdminRepository
     Task<AdminOwnerDetailDto?> GetOwnerByIdAsync(int ownerId);
     Task<User?> GetOwnerEntityAsync(int ownerId);
     Task<int> GetOwnerRoomCountAsync(int ownerUserId);
+    Task CleanupOwnerBeforeDeleteAsync(int ownerUserId);
 
     Task<(List<AdminPackageDto> Items, int Total)> GetPackagesAsync(string? search, bool? isEnabled, int page, int pageSize);
     Task<Package?> GetPackageByIdAsync(int packageId);
@@ -29,7 +30,7 @@ public interface IAdminRepository
     Task<RevenueReportDto> GetRevenueReportAsync(DateTime? from, DateTime? to);
     Task AddPaymentAsync(SubscriptionPayment payment);
 
-    Task<(List<AdminUserDto> Items, int Total)> GetUsersAsync(string? role, string? search, bool? isActive, int page, int pageSize);
+    Task<(List<AdminUserDto> Items, int Total)> GetUsersAsync(string? role, string? search, bool? isActive, string? subscriptionStatus, int page, int pageSize);
     Task<User?> GetUserByIdAsync(int userId);
 
     Task<(List<AdminAuditLogDto> Items, int Total)> GetAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to, int page, int pageSize);

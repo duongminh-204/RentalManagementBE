@@ -24,9 +24,10 @@ public class AdminUsersController : ControllerBase
         [FromQuery] string? role,
         [FromQuery] string? search,
         [FromQuery] bool? isActive,
+        [FromQuery] string? subscriptionStatus,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
-        => Ok(await _adminService.GetUsersAsync(role, search, isActive, page, pageSize));
+        => Ok(await _adminService.GetUsersAsync(role, search, isActive, subscriptionStatus, page, pageSize));
 
     [HttpPost("{id}/enable")]
     public async Task<ActionResult<AdminUserDto>> Enable(int id)
@@ -48,6 +49,24 @@ public class AdminUsersController : ControllerBase
     {
         try { return Ok(await _adminService.ResetUserPasswordAsync(id, GetUserId(), GetIp())); }
         catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            await _adminService.DeleteUserAsync(id, GetUserId(), GetIp());
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     private int? GetUserId()

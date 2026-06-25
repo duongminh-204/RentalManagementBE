@@ -34,10 +34,11 @@ public interface IAdminService
     Task<RevenueReportDto> GetRevenueReportAsync(DateTime? from, DateTime? to);
     Task<byte[]> ExportPaymentsExcelAsync(DateTime? from, DateTime? to);
 
-    Task<PagedResultDto<AdminUserDto>> GetUsersAsync(string? role, string? search, bool? isActive, int page, int pageSize);
+    Task<PagedResultDto<AdminUserDto>> GetUsersAsync(string? role, string? search, bool? isActive, string? subscriptionStatus, int page, int pageSize);
     Task<AdminUserDto> EnableUserAsync(int userId, int? adminUserId, string? ip);
     Task<AdminUserDto> DisableUserAsync(int userId, int? adminUserId, string? ip);
     Task<AdminResetPasswordResultDto> ResetUserPasswordAsync(int userId, int? adminUserId, string? ip);
+    Task DeleteUserAsync(int userId, int? adminUserId, string? ip);
 
     Task<PagedResultDto<AdminAuditLogDto>> GetAuditLogsAsync(int? userId, string? action, string? entity, DateTime? from, DateTime? to, int page, int pageSize);
 }

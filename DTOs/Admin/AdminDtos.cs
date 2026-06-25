@@ -46,6 +46,7 @@ public class AdminOwnerListDto
     public string FullName { get; set; } = string.Empty;
     public string? Email { get; set; }
     public string? Phone { get; set; }
+    public string? Avatar { get; set; }
     public string? Package { get; set; }
     public string SubscriptionStatus { get; set; } = "None";
     public DateTime CreatedDate { get; set; }
@@ -53,14 +54,17 @@ public class AdminOwnerListDto
     public bool IsActive { get; set; }
     public bool IsSuspended { get; set; }
     public int RoomCount { get; set; }
+    public int BuildingCount { get; set; }
 }
 
 public class AdminOwnerDetailDto : AdminOwnerListDto
 {
     public int? PackageId { get; set; }
     public int? SubscriptionId { get; set; }
-    public int BuildingCount { get; set; }
     public DateTime? SubscriptionStartDate { get; set; }
+    public string? CCCD { get; set; }
+    public string? Address { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 
 public class CreateAdminOwnerDto
@@ -150,10 +154,16 @@ public class AdminUserDto
     public string FullName { get; set; } = string.Empty;
     public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? Avatar { get; set; }
     public string Role { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public bool IsSuspended { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? Package { get; set; }
+    public string? SubscriptionStatus { get; set; }
+    public DateTime? ExpiredDate { get; set; }
+    public int RoomCount { get; set; }
+    public int BuildingCount { get; set; }
 }
 
 public class AdminResetPasswordResultDto
