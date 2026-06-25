@@ -26,6 +26,11 @@ public class BankTransferWebhookController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>Kiểm tra tunnel ngrok / SePay có gọi được endpoint không.</summary>
+    [HttpGet("bank-transfer/health")]
+    public IActionResult Health()
+        => Ok(new { status = "ok", service = "bank-transfer-webhook" });
+
     /// <summary>
     /// Webhook nhận biến động số dư từ SePay hoặc Casso.
     /// Cấu hình URL: POST /api/webhooks/bank-transfer
