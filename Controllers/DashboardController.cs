@@ -9,7 +9,8 @@ namespace Backend.Controllers;
 
 [Route("api/dashboard")]
 [ApiController]
-[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
+[Authorize(Policy = PackageFeaturePolicies.Dashboard)]
 public class DashboardController : ControllerBase
 {
     private readonly IDashboardService _dashboardService;

@@ -30,6 +30,8 @@ public class OwnerSubscriptionDto
     public int? PendingPackageId { get; set; }
     public string? PendingPackageName { get; set; }
     public decimal? PendingPaymentAmount { get; set; }
+    public bool HasTrialAccess { get; set; }
+    public List<string> EffectiveFeatures { get; set; } = [];
 }
 
 public class SubscriptionPaymentCheckoutDto

@@ -9,7 +9,8 @@ namespace Backend.Controllers;
 
 [Route("api/invoices")]
 [ApiController]
-[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
+[Authorize(Policy = PackageFeaturePolicies.PaymentInvoices)]
 public class InvoiceController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;

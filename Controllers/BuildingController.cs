@@ -9,7 +9,8 @@ namespace Backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
+[Authorize(Policy = PackageFeaturePolicies.TenantManagement)]
 public class BuildingController : ControllerBase
 {
     private readonly IBuildingService _buildingService;

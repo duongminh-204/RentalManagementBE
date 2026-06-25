@@ -20,6 +20,7 @@ namespace Backend.Services
         private readonly UserManager<User> _userManager;
         private readonly IUserRoleService _userRoleService;
         private readonly ISubscriptionService _subscriptionService;
+        private readonly IOwnerFeatureService _ownerFeatureService;
         private readonly IConfiguration _configuration;
         private readonly IMemoryCache _cache;
 
@@ -31,6 +32,7 @@ namespace Backend.Services
             UserManager<User> userManager,
             IUserRoleService userRoleService,
             ISubscriptionService subscriptionService,
+            IOwnerFeatureService ownerFeatureService,
             IConfiguration configuration,
             IMemoryCache cache)
         {
@@ -39,6 +41,7 @@ namespace Backend.Services
             _userManager = userManager;
             _userRoleService = userRoleService;
             _subscriptionService = subscriptionService;
+            _ownerFeatureService = ownerFeatureService;
             _configuration = configuration;
             _cache = cache;
         }
@@ -361,6 +364,16 @@ namespace Backend.Services
                 dto.SubscriptionStatus = subscription?.Status ?? "None";
                 dto.PackageId = subscription?.PackageId;
                 dto.PackageName = subscription?.PackageName;
+                dto.HasTrialAccess = subscription?.HasTrialAccess ?? false;
+
+                var effective = subscription?.EffectiveFeatures?.Count > 0
+                    ? subscription.EffectiveFeatures
+                    : (await _ownerFeatureService.GetEffectiveFeaturesAsync(user.Id))
+                        .Select(f => f.ToString())
+                        .ToList();
+                dto.EffectiveFeatures = effective;
+                if (dto.HasTrialAccess && string.Equals(dto.SubscriptionStatus, "None", StringComparison.OrdinalIgnoreCase))
+                    dto.SubscriptionStatus = "Trial";
             }
 
             return dto;

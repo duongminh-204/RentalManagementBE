@@ -9,7 +9,8 @@ namespace Backend.Controllers;
 
 [Route("api/tenants")]
 [ApiController]
-[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
+[Authorize(Policy = PackageFeaturePolicies.TenantManagement)]
 public class TenantsController : ControllerBase
 {
     private readonly ITenantService _tenantService;

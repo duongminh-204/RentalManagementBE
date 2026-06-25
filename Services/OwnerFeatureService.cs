@@ -203,6 +203,12 @@ public class OwnerFeatureService : IOwnerFeatureService
         return features;
     }
 
+    public async Task<bool> HasAnyActiveManualGrantAsync(int ownerUserId, CancellationToken ct = default)
+    {
+        var manual = await GetActiveManualGrantsAsync(ownerUserId, ct);
+        return manual.Count > 0;
+    }
+
     private static bool IsMissingFeatureGrantsTable(Exception ex) =>
         ex switch
         {

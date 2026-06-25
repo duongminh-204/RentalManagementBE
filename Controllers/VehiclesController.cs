@@ -9,7 +9,7 @@ namespace Backend.Controllers;
 
 [Route("api/vehicles")]
 [ApiController]
-[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
 [Authorize(Policy = PackageFeaturePolicies.VehicleManagement)]
 public class VehiclesController : ControllerBase
 {

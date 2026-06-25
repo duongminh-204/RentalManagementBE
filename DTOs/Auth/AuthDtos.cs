@@ -51,4 +51,6 @@ public class AuthUserDto
     public string? SubscriptionStatus { get; set; }
     public int? PackageId { get; set; }
     public string? PackageName { get; set; }
+    public bool HasTrialAccess { get; set; }
+    public List<string> EffectiveFeatures { get; set; } = [];
 }

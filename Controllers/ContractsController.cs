@@ -9,7 +9,8 @@ namespace Backend.Controllers;
 
 [Route("api/contracts")]
 [ApiController]
-[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
+[Authorize(Policy = PackageFeaturePolicies.Contracts)]
 public class ContractsController : ControllerBase
 {
     private readonly IContractService _contracts;

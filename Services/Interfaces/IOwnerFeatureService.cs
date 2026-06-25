@@ -17,4 +17,6 @@ public interface IOwnerFeatureService
         int? adminUserId,
         string? ip,
         CancellationToken ct = default);
+
+    Task<bool> HasAnyActiveManualGrantAsync(int ownerUserId, CancellationToken ct = default);
 }

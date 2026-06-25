@@ -9,7 +9,8 @@ namespace Backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+    [Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
+    [Authorize(Policy = PackageFeaturePolicies.TenantManagement)]
     public class RoomController : ControllerBase
     {
         private readonly IRoomService _roomService;

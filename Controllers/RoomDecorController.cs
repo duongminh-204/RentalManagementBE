@@ -8,7 +8,7 @@ namespace Backend.Controllers;
 
 [Route("api/room-decor")]
 [ApiController]
-[Authorize(Policy = AuthorizationPolicies.ActiveOwnerSubscription)]
+[Authorize(Policy = AuthorizationPolicies.ActiveOwner)]
 [Authorize(Policy = PackageFeaturePolicies.AiRoomDecor)]
 public class RoomDecorController : ControllerBase
 {

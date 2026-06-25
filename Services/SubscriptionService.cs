@@ -65,7 +65,10 @@ public class SubscriptionService : ISubscriptionService
         var pending = await GetPrimarySubscriptionQuery(ownerUserId)
             .FirstOrDefaultAsync();
 
-        return pending == null ? null : await MapOwnerSubscriptionAsync(pending, ownerUserId);
+        if (pending != null)
+            return await MapOwnerSubscriptionAsync(pending, ownerUserId);
+
+        return await BuildTrialOnlySubscriptionAsync(ownerUserId);
     }
 
     public async Task<OwnerSubscriptionDto> RequestSubscriptionAsync(int ownerUserId, int packageId)
@@ -452,6 +455,8 @@ public class SubscriptionService : ISubscriptionService
 
         var ownerId = ownerUserId ?? subscription.OwnerUserId;
         await AppendTrialFeatureLabelsAsync(features, ownerId, package?.PackageName);
+        var effective = await _ownerFeatureService.GetEffectiveFeaturesAsync(ownerId);
+        var hasTrial = await _ownerFeatureService.HasAnyActiveManualGrantAsync(ownerId);
 
         return new OwnerSubscriptionDto
         {
@@ -465,7 +470,30 @@ public class SubscriptionService : ISubscriptionService
             PaymentReference = subscription.PaymentReference,
             Price = package?.Price,
             PaymentAmount = subscription.PaymentAmount,
-            IsUpgrade = subscription.ReplacesSubscriptionId.HasValue
+            IsUpgrade = subscription.ReplacesSubscriptionId.HasValue,
+            HasTrialAccess = hasTrial,
+            EffectiveFeatures = effective.Select(f => f.ToString()).ToList()
+        };
+    }
+
+    private async Task<OwnerSubscriptionDto?> BuildTrialOnlySubscriptionAsync(int ownerUserId)
+    {
+        var hasTrial = await _ownerFeatureService.HasAnyActiveManualGrantAsync(ownerUserId);
+        if (!hasTrial)
+            return null;
+
+        var effective = await _ownerFeatureService.GetEffectiveFeaturesAsync(ownerUserId);
+        var features = effective
+            .Select(PackageCatalog.GetDisplayName)
+            .Select(label => $"{label} (Dùng thử)")
+            .ToList();
+
+        return new OwnerSubscriptionDto
+        {
+            Status = "Trial",
+            HasTrialAccess = true,
+            EffectiveFeatures = effective.Select(f => f.ToString()).ToList(),
+            Features = features
         };
     }
 

@@ -20,7 +20,13 @@ public static class RoleNames
 
 public static class PackageFeaturePolicies
 {
+    public const string Dashboard = "PackageFeature.Dashboard";
+    public const string TenantManagement = "PackageFeature.TenantManagement";
+    public const string UtilitiesInvoices = "PackageFeature.UtilitiesInvoices";
+    public const string Contracts = "PackageFeature.Contracts";
+    public const string PaymentInvoices = "PackageFeature.PaymentInvoices";
     public const string RevenueDebtReports = "PackageFeature.RevenueDebtReports";
     public const string VehicleManagement = "PackageFeature.VehicleManagement";
     public const string AiRoomDecor = "PackageFeature.AiRoomDecor";
+    public const string LegalChecklist = "PackageFeature.LegalChecklist";
 }
